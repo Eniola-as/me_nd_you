@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: me_nd_you
+    env: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn me_nd_you.wsgi:application
+    envVars:
+      - key: SECRET_KEY
+        value: Eniola12
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: your-render-app.onrender.com
+      - key: DB_NAME
+        value: couple_game_db
+      - key: DB_USER
+        value: eniola
+      - key: DB_PASSWORD
+        value: eniola12
+      - key: DB_HOST
+        value: 127.0.0.1
+      - key: DB_PORT
+        value: "3306"
+    pythonVersion: 3.10

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% load static %}
+    <meta charset="UTF-8" />
+    <title>Let's Play – 3D Flip Card Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <link
+      rel="manifest"
+      href="{% static 'manifest.json' %}"
+      crossorigin="use-credentials"
+    />
+    <link rel="icon" href="{% static 'icons/icon.jpg' %}" />
+    <link rel="apple-touch-icon" href="{% static 'icons/icon.jpg' %}" />
+    <meta name="theme-color" content="#111111" />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0d0d0d;
+        --glass: rgba(255, 255, 255, 0.05);
+        --border: rgba(255, 255, 255, 0.1);
+        --accent: #ff4c61;
+        --accent-hover: #ff7182;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: "Outfit", sans-serif;
+        background: var(--bg);
+        color: white;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      h2 {
+        margin: 10px 0 5px;
+        color: var(--accent);
+        font-size: 28px;
+      }
+      #mode-title {
+        font-size: 16px;
+        margin-bottom: 20px;
+      }
+      .flip-container {
+        perspective: 1200px;
+        width: 90%;
+        max-width: 400px;
+        height: 250px;
+      }
+      .flipper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+        transition: transform 0.6s ease;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      }
+      .flip-container.flipped .flipper {
+        transform: rotateY(180deg);
+      }
+      .side {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        border-radius: 16px;
+        background: var(--glass);
+        border: 1px solid var(--border);
+        backdrop-filter: blur(14px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        font-size: 20px;
+        text-align: center;
+        backface-visibility: hidden;
+      }
+      .back {
+        background: var(--accent);
+        color: #222;
+        transform: rotateY(180deg);
+      }
+      .buttons {
+        margin-top: 25px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        width: 100%;
+        max-width: 400px;
+      }
+      button {
+        flex: 1 1 120px;
+        padding: 12px 16px;
+        font-size: 16px;
+        border-radius: 10px;
+        background: var(--glass);
+        border: 1px solid var(--accent);
+        color: white;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+      button:hover {
+        background: var(--accent-hover);
+        color: #222;
+      }
+      #add-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      #add-modal form {
+        background: var(--bg);
+        padding: 25px;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 400px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+      #add-modal textarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 10px;
+        font-size: 16px;
+        border: none;
+        resize: vertical;
+        height: 80px;
+      }
+      #add-modal .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .close-btn {
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 20px;
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        cursor: pointer;
+      }
+      /* Add guide modal styles */
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.9);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+      .modal-content {
+        background: var(--glass);
+        border: 1px solid var(--border);
+        padding: 25px;
+        border-radius: 16px;
+        max-width: 90%;
+        width: 400px;
+        text-align: center;
+      }
+      .modal-content h3 {
+        color: var(--accent);
+        margin-bottom: 20px;
+      }
+      .modal-content p {
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Let’s Play!</h2>
+    <div id="mode-title">...loading</div>
+
+    <div class="flip-container" id="flip-container">
+      <div class="flipper">
+        <div class="side front" id="card-front">Loading...</div>
+        <div class="side back" id="card-back">Mode Name</div>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="nextBtn">Next Question</button>
+      <button id="switchBtn">Switch Mode</button>
+      <button id="addBtn">Add Question</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+
+    <div
+      id="remaining-counter"
+      style="margin-top: 10px; font-size: 14px; color: #aaa"
+    >
+      Remaining: <span id="remaining-count">...</span>
+    </div>
+
+    <div id="add-modal">
+      <form onsubmit="submitQuestion(event)">
+        <button type="button" class="close-btn" onclick="closeModal()">
+          ✖
+        </button>
+        <textarea
+          id="new-question"
+          placeholder="Your question..."
+          required
+        ></textarea>
+        <div class="modal-buttons">
+          <button type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Add guide modal -->
+    <div id="guide-modal" class="modal">
+      <div class="modal-content">
+        <h3>How to Play</h3>
+        <p>1. Take turns reading questions</p>
+        <p>2. Both partners must answer honestly</p>
+        <p>3. Add your own questions anytime</p>
+        <button onclick="closeGuide()">Got it!</button>
+      </div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get("mode");
+      const secret = params.get("secret");
+      const urlSeed = params.get("seed");
+      const roomName = secret;
+
+      const container = document.getElementById("flip-container");
+      const cardFront = document.getElementById("card-front");
+      const cardBack = document.getElementById("card-back");
+      const remainingCountSpan = document.getElementById("remaining-count");
+
+      let questions = [],
+        seenTexts = [],
+        remaining = [],
+        seed = urlSeed ? parseInt(urlSeed) : null;
+
+      const myUserId = Math.random().toString(36).substr(2, 9);
+
+      function flipCard() {
+        container.classList.toggle("flipped");
+      }
+
+      function flipBackIfNeeded(clean) {
+        if (container.classList.contains("flipped")) flipCard();
+        if (clean) container.offsetWidth;
+      }
+
+      // Update card click handling
+      const flipCardHandler = (e) => {
+        e.preventDefault();
+        flipCard();
+      };
+
+      // Remove old event listener if exists
+      container.removeEventListener("click", flipCardHandler);
+      container.removeEventListener("touchend", flipCardHandler);
+
+      // Add both click and touch events
+      container.addEventListener("click", flipCardHandler);
+      container.addEventListener("touchend", flipCardHandler);
+
+      // Make card clickable by updating cursor style
+      container.style.cursor = "pointer";
+
+      function mulberry32(a) {
+        return function () {
+          let t = (a += 0x6d2b79f5);
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function shuffle(array, seed) {
+        const rng = mulberry32(seed);
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+
+      function getWebSocketUrl() {
+        try {
+          const protocol =
+            window.location.protocol === "https:" ? "wss:" : "ws:";
+          const host = window.location.host || "127.0.0.1:8000";
+          const encodedRoom = encodeURIComponent(roomName || "");
+          const encodedMode = encodeURIComponent(mode || "");
+          return `${protocol}//${host}/ws/game/${encodedRoom}/${encodedMode}/`;
+        } catch (err) {
+          console.error("Error constructing WebSocket URL:", err);
+          return null;
+        }
+      }
+
+      function loadSession() {
+        try {
+          const key = `session-${secret}-${mode}`;
+          const saved = localStorage.getItem(key);
+          if (saved) {
+            const data = JSON.parse(saved);
+            seenTexts = Array.isArray(data.seen) ? data.seen : [];
+            seed = urlSeed ? parseInt(urlSeed) : data.seed || null;
+          } else {
+            // Initialize new session
+            seenTexts = [];
+            seed = urlSeed ? parseInt(urlSeed) : Date.now() % 1000000000;
+            saveSession();
+          }
+        } catch (err) {
+          console.error("Session load error:", err);
+          seenTexts = [];
+          seed = null;
+        }
+      }
+
+      function saveSession() {
+        const key = `session-${secret}-${mode}`;
+        localStorage.setItem(key, JSON.stringify({ seen: seenTexts, seed }));
+      }
+
+      async function loadQuestions() {
+        try {
+          const res = await fetch(`/api/questions/${mode}?secret=${secret}`);
+          questions = await res.json();
+
+          loadSession();
+
+          if (!seed) {
+            seed = Date.now() % 1000000000;
+            saveSession();
+          }
+
+          shuffle(questions, seed);
+          updateRemaining();
+
+          if (remaining.length) nextQuestion();
+          else
+            cardFront.textContent = "🎉 All questions finished. Click Reset.";
+        } catch (err) {
+          cardFront.textContent = "⚠ Failed to load questions.";
+          console.error("Fetch error:", err);
+        }
+      }
+
+      function updateRemaining() {
+        remaining = questions.filter((q) => !seenTexts.includes(q.text));
+        remainingCountSpan.textContent = remaining.length;
+      }
+
+      function nextQuestion() {
+        if (!remaining.length) {
+          cardFront.textContent = "🎉 All questions finished. Click Reset.";
+          return;
+        }
+
+        const q1 = remaining.shift();
+        seenTexts.push(q1.text);
+        saveSession();
+        updateRemaining();
+
+        const payload = {
+          userId: myUserId,
+          questions: [q1.text],
+        };
+
+        flipBackIfNeeded();
+        setTimeout(() => {
+          cardFront.textContent = q1.text;
+          flipCard();
+        }, 300);
+
+        safeSend(JSON.stringify(payload));
+      }
+
+      function resetSession() {
+        seenTexts = [];
+        seed = Date.now() % 1000000000;
+        saveSession();
+        safeSend(
+          JSON.stringify({
+            type: "reset",
+            userId: myUserId,
+            seed: seed,
+          })
+        );
+        loadQuestions();
+      }
+
+      // Add event listeners instead of inline onclick
+      document
+        .getElementById("nextBtn")
+        .addEventListener("click", nextQuestion);
+      document.getElementById("switchBtn").addEventListener("click", () => {
+        window.location.href = `/modes/?secret=${encodeURIComponent(secret)}`;
+      });
+      document.getElementById("addBtn").addEventListener("click", () => {
+        document.getElementById("add-modal").style.display = "flex";
+      });
+      document
+        .getElementById("resetBtn")
+        .addEventListener("click", resetSession);
+
+      // Initialize when document is ready
+      document.addEventListener("DOMContentLoaded", () => {
+        // connectWebSocket();  // Disabled for free plan
+        loadQuestions();
+        // checkSession();     // Disabled for free plan
+        showGuide();
+
+        // setInterval(checkSession, 300000);  // Disabled for free plan
+      });
+
+      function openModal() {
+        document.getElementById("add-modal").style.display = "flex";
+      }
+
+      function closeModal() {
+        document.getElementById("add-modal").style.display = "none";
+      }
+
+      async function submitQuestion(e) {
+        e.preventDefault();
+        const text = document.getElementById("new-question").value.trim();
+        if (!text) return;
+
+        try {
+          const res = await fetch("/api/add-custom-question/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ couple: secret, text, mode }),
+          });
+
+          if (res.ok) {
+            const q = await res.json();
+            questions.push(q);
+            remaining.push(q);
+            updateRemaining();
+            closeModal();
+            // safeSend(JSON.stringify({  // Disabled WebSocket send
+            //     type: "new_question",
+            //     userId: myUserId,
+            //     question: q,
+            // }));
+            alert("✅ Added!");
+          } else {
+            alert("❌ Failed to add.");
+          }
+        } catch (err) {
+          console.error("Error adding question:", err);
+          alert("❌ Failed to add.");
+        }
+      }
+
+      let socket;
+      let reconnectAttempts = 0;
+      const MAX_RECONNECT_ATTEMPTS = 5;
+      let messageQueue = [];
+      let isReconnecting = false;
+
+      function connectWebSocket() {
+        if (
+          isReconnecting ||
+          (socket && socket.readyState === WebSocket.OPEN)
+        ) {
+          return;
+        }
+
+        const wsUrl = getWebSocketUrl();
+        if (!wsUrl) {
+          console.error("Invalid WebSocket URL");
+          return;
+        }
+
+        try {
+          socket = new WebSocket(wsUrl);
+          isReconnecting = true;
+
+          socket.onopen = function () {
+            console.log("WebSocket connected to:", wsUrl);
+            reconnectAttempts = 0;
+            isReconnecting = false;
+            processMessageQueue();
+          };
+
+          socket.onclose = function (event) {
+            if (!isReconnecting) {
+              console.warn("WebSocket disconnected with code:", event.code);
+              console.warn("Reason:", event.reason || "No reason provided");
+              reconnectWithBackoff();
+            }
+          };
+
+          socket.onerror = function (err) {
+            console.error("WebSocket error:", err);
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.close();
+            }
+            if (!isReconnecting) {
+              reconnectWithBackoff();
+            }
+          };
+
+          socket.onmessage = function (e) {
+            try {
+              const data = JSON.parse(e.data);
+              if (data.type === "sync_request") {
+                // Send current state when requested
+                safeSend(
+                  JSON.stringify({
+                    type: "sync_response",
+                    userId: myUserId,
+                    state: {
+                      seed,
+                      seenTexts,
+                      currentQuestion: cardFront.textContent,
+                    },
+                  })
+                );
+                return;
+              }
+              handleWebSocketMessage(data);
+            } catch (err) {
+              console.error("Error processing message:", err);
+            }
+          };
+        } catch (err) {
+          console.error("Failed to create WebSocket:", err);
+          reconnectWithBackoff();
+        }
+      }
+
+      function safeSend(data) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          try {
+            socket.send(data);
+          } catch (err) {
+            console.warn("Failed to send, queueing message");
+            messageQueue.push(data);
+          }
+        } else {
+          console.warn("Socket not ready, queueing message");
+          messageQueue.push(data);
+
+          // Ensure the WebSocket connection is established
+          if (!isReconnecting) {
+            connectWebSocket();
+          }
+
+          // Wait for the WebSocket to open and send queued messages
+          socket.addEventListener(
+            "open",
+            () => {
+              processMessageQueue();
+            },
+            { once: true }
+          );
+        }
+      }
+
+      function processMessageQueue() {
+        while (
+          messageQueue.length > 0 &&
+          socket &&
+          socket.readyState === WebSocket.OPEN
+        ) {
+          try {
+            const msg = messageQueue.shift();
+            socket.send(msg);
+          } catch (err) {
+            console.warn("Failed to send queued message:", err);
+            messageQueue.unshift(msg); // Put message back at front of queue
+            break;
+          }
+        }
+      }
+
+      function reconnectWithBackoff() {
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS || isReconnecting)
+          return;
+
+        isReconnecting = true;
+        const backoffTime = Math.min(
+          1000 * Math.pow(2, reconnectAttempts),
+          10000
+        );
+        reconnectAttempts++;
+
+        setTimeout(() => {
+          isReconnecting = false;
+          connectWebSocket();
+        }, backoffTime);
+      }
+
+      // Update the handleWebSocketMessage function
+      function handleWebSocketMessage(data) {
+        // Handle only question-related messages
+        if (data.type === "new_question" && data.userId !== myUserId) {
+          questions.push(data.question);
+          remaining.push(data.question);
+          updateRemaining();
+          return;
+        }
+
+        if (data.userId && data.questions && data.userId !== myUserId) {
+          flipBackIfNeeded();
+          setTimeout(() => {
+            cardFront.textContent = data.questions[0];
+            flipCard();
+          }, 300);
+        }
+      }
+
+      const modeMap = {
+        questions: "Questions",
+        truth: "Truth or Dare",
+        challenge: "Challenge",
+        spicy: "Spicy Only",
+        mixed: "Mixed Mode",
+        would: "Would You Rather",
+      };
+
+      cardBack.textContent = modeMap[mode] || "Game Mode";
+      document.getElementById("mode-title").textContent =
+        modeMap[mode] || "Game Mode";
+
+      // Service Worker Registration
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", async () => {
+          try {
+            await navigator.serviceWorker.register(
+              "/static/service-worker.js",
+              {
+                scope: "/static/",
+              }
+            );
+          } catch (err) {
+            console.error("Service Worker registration failed:", err);
+          }
+        });
+      }
+
+      // Add session expiry check
+      async function checkSession() {
+        const session = localStorage.getItem(`session-${secret}-${mode}`);
+        if (!session) {
+          window.location.href = "/";
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/check-session/?secret=${secret}`);
+          const data = await res.json();
+          if (!data.valid) {
+            alert("Session expired. Please login again.");
+            window.location.href = "/";
+          }
+        } catch (err) {
+          console.error("Session check failed:", err);
+        }
+      }
+
+      // Show guide on first visit
+      function showGuide() {
+        const hasSeenGuide = localStorage.getItem("hasSeenGuide");
+        if (!hasSeenGuide) {
+          document.getElementById("guide-modal").style.display = "flex";
+          localStorage.setItem("hasSeenGuide", "true");
+        }
+      }
+
+      function closeGuide() {
+        document.getElementById("guide-modal").style.display = "none";
+      }
+
+      // Add to initialization
+      document.addEventListener("DOMContentLoaded", () => {
+        connectWebSocket();
+        loadQuestions();
+        // checkSession();  // Remove this
+        showGuide();
+
+        // setInterval(checkSession, 300000);  // Remove this
+      });
+    </script>
+  </body>
+</html>
