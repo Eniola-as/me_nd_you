@@ -137,9 +137,14 @@ me_nd_you/
 
 ## Known Limitations
 
-> **Known Limitation**
->
-> The live version of this application is hosted on Render's free hosting tier. Due to the limitations of the free plan, some online session-sharing or multiplayer functionality may not work as intended in the deployed version. The application works correctly when run locally in a development environment. This limitation is related to the hosting environment rather than the application itself.
+> ## Live Demo Notice
+
+The live version of this application is hosted on **Render's free hosting tier**. Because of the limitations of the free plan, some features that depend on persistent connections or online session sharing (such as multiplayer gameplay) may not function as intended in the deployed version.
+
+The application has been fully developed and tested locally, where all gameplay and real-time features work as expected. These limitations are caused by the hosting environment rather than the application's implementation.
+
+For the best experience, clone the repository and run the project locally using the setup instructions below.
+
 
 ## Contributing
 
