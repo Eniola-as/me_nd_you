@@ -55,3 +55,27 @@ class PlayPageSocketTests(TestCase):
         # the reconnect must not adopt the partner's question in that case.
         self.assertIn("if (!socketClient.isOpen) ownQuestionPending = true;", self.html)
         self.assertRegex(self.html, r"onOpen\(\)\s*\{[^}]*acceptSync = !ownQuestionPending;")
+
+
+class PlayPageLoadingTests(TestCase):
+    """Questions must load once per page load (they loaded twice before)."""
+
+    def setUp(self):
+        self.html = self.client.get("/play/").content.decode()
+
+    def test_page_has_a_single_page_ready_handler(self):
+        self.assertEqual(self.html.count('addEventListener("DOMContentLoaded"'), 1)
+
+    def test_page_ready_handler_loads_questions_once(self):
+        start = self.html.index('addEventListener("DOMContentLoaded"')
+        handler = self.html[start : self.html.index("});", start)]
+        self.assertEqual(handler.count("loadQuestions("), 1)
+        self.assertIn("socketClient.connect()", handler)
+        self.assertIn("showGuide()", handler)
+
+    def test_questions_load_only_from_the_three_intended_places(self):
+        # The definition, page load, Reset, and a partner's reset.
+        calls = self.html.count("loadQuestions(") - 1
+        self.assertEqual(calls, 3)
+        self.assertIn("loadQuestions({ announce: true })", self.html)
+        self.assertIn("loadQuestions({ showFirst: false })", self.html)

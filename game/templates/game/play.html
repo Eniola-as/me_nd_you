@@ -451,16 +451,6 @@
         .getElementById("resetBtn")
         .addEventListener("click", resetSession);
 
-      // Initialize when document is ready
-      document.addEventListener("DOMContentLoaded", () => {
-        // connectWebSocket();  // Disabled for free plan
-        loadQuestions();
-        // checkSession();     // Disabled for free plan
-        showGuide();
-
-        // setInterval(checkSession, 300000);  // Disabled for free plan
-      });
-
       function openModal() {
         document.getElementById("add-modal").showModal();
       }
