@@ -145,12 +145,22 @@ STORAGES = {
 # Default primary key
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+TRUSTED_PROXY_COUNT = config("TRUSTED_PROXY_COUNT", default=None, cast=lambda v: int(v) if v else None)
+
 # Django REST Framework: JSON only; the browsable HTML API is for development.
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"]
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     # Slows down guessing other couples' secret words.
     "DEFAULT_THROTTLE_RATES": {"login": "10/min"},
+    # How many proxies in front of the app append to X-Forwarded-For. Rate
+    # limits identify clients by the address the last trusted proxy added;
+    # anything earlier in the header is client-supplied and can be faked.
+    # 0 (the default) ignores the header and uses the connecting address,
+    # which can't be faked but, behind a proxy, puts every visitor in one
+    # bucket. Set TRUSTED_PROXY_COUNT once the deployment's proxy chain is
+    # verified (a deploy check warns while it is unset).
+    "NUM_PROXIES": TRUSTED_PROXY_COUNT or 0,
 }
 
 # Django Channels

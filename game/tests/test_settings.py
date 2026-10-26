@@ -12,6 +12,8 @@ PRODUCTION_ENV = {
     "DEBUG": "False",
     "ALLOWED_HOSTS": "me-nd-you.onrender.com",
     "SECRET_KEY": "test-only-fake-key-not-a-secret-for-deploy-check-0123456789",
+    # Test value only; the real count must be verified for Render.
+    "TRUSTED_PROXY_COUNT": "1",
 }
 
 
@@ -76,6 +78,25 @@ class AdminUrlTests(SimpleTestCase):
 
     def test_admin_path_can_be_moved_by_environment(self):
         self.assertEqual(self.admin_index({"ADMIN_URL": "backstage-7f3k/"}), "/backstage-7f3k/")
+
+
+class TrustedProxySettingsTests(SimpleTestCase):
+    def test_unset_proxy_count_ignores_forwarded_headers(self):
+        values = load_settings({}, ["REST_FRAMEWORK"])
+        self.assertEqual(values["REST_FRAMEWORK"]["NUM_PROXIES"], 0)
+
+    def test_proxy_count_comes_from_the_environment(self):
+        values = load_settings({"TRUSTED_PROXY_COUNT": "2"}, ["REST_FRAMEWORK"])
+        self.assertEqual(values["REST_FRAMEWORK"]["NUM_PROXIES"], 2)
+
+    def test_deploy_check_warns_when_proxy_count_is_unset(self):
+        env = {k: v for k, v in os.environ.items() if k not in SETTINGS_ENV_KEYS}
+        env.update({k: v for k, v in PRODUCTION_ENV.items() if k != "TRUSTED_PROXY_COUNT"})
+        result = subprocess.run(
+            [sys.executable, "manage.py", "check", "--deploy"],
+            cwd=settings.BASE_DIR, env=env, capture_output=True, text=True,
+        )
+        self.assertIn("game.W001", result.stderr + result.stdout)
 
 
 class HttpsSettingsTests(SimpleTestCase):
