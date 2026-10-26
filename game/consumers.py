@@ -1,5 +1,9 @@
+import hashlib
+import hmac
 import json
+
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.conf import settings
 
 # Game messages are a question or two; anything far larger is abuse.
 MAX_MESSAGE_CHARS = 8_000
@@ -49,11 +53,26 @@ def parse_message(text_data):
     return None
 
 
+def room_group_name(secret, mode):
+    """The Channels group for one couple's secret and game mode.
+
+    Channels only allows ASCII letters, digits, "-", "_" and "." in group
+    names, under 100 characters, so the name is an HMAC-SHA256 digest: valid
+    for any secret, and the raw secret never appears in it. The pair is
+    JSON-encoded so a secret and a mode can't be shifted into each other
+    ("love_truth" + "questions" vs "love" + "truth_questions"). Keying with
+    SECRET_KEY stops anyone who sees a group name (e.g. in Redis) from
+    guessing the secret offline; rotating the key only renames live rooms.
+    """
+    pair = json.dumps([secret, mode]).encode()
+    digest = hmac.new(settings.SECRET_KEY.encode(), pair, hashlib.sha256).hexdigest()
+    return f"game.{digest}"
+
+
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
-        self.mode = self.scope["url_route"]["kwargs"]["mode"]
-        self.room_group_name = f"game_{self.room_name}_{self.mode}"
+        route = self.scope["url_route"]["kwargs"]
+        self.room_group_name = room_group_name(route["room_name"], route["mode"])
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 

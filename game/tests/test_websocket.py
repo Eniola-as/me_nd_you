@@ -1,10 +1,13 @@
 import importlib
+import re
+from urllib.parse import quote
 
 from asgiref.sync import async_to_sync
 from channels.testing import WebsocketCommunicator
 from django.test import SimpleTestCase, override_settings
 
 import me_nd_you.asgi
+from game.consumers import room_group_name
 
 PATH = "/ws/game/room/questions/"
 
@@ -180,3 +183,100 @@ class MalformedMessageTests(SimpleTestCase):
             return received
 
         self.assertEqual(async_to_sync(run)()["question"], "Still there?")
+
+
+# Channels' own rule for group names (channels/layers.py).
+GROUP_NAME_RE = re.compile(r"^[a-zA-Z\d\-_.]+$")
+GROUP_NAME_MAX = 100  # Names must be shorter than this.
+
+SPECIAL_SECRETS = {
+    "plain": "sunflower",
+    "space": "our song",
+    "hash": "us#1",
+    "ampersand": "you&me",
+    "punctuation": "love? yes! (always) 100% <3 ;-)",
+    "accent": "José & Zoë",
+    "emoji": "us two 💕🌙",
+    "100 characters": "s" * 100,
+    "1,000 characters": "long secret " * 84,
+}
+
+
+class RoomGroupNameTests(SimpleTestCase):
+    def test_names_are_always_valid_channels_group_names(self):
+        for label, secret in SPECIAL_SECRETS.items():
+            for mode in ["questions", "truth", "weird mode #&é💕", "m" * 300]:
+                with self.subTest(secret=label, mode=mode[:20]):
+                    name = room_group_name(secret, mode)
+                    self.assertRegex(name, GROUP_NAME_RE)
+                    self.assertLess(len(name), GROUP_NAME_MAX)
+
+    def test_same_secret_and_mode_always_give_the_same_name(self):
+        self.assertEqual(room_group_name("our song", "truth"), room_group_name("our song", "truth"))
+
+    def test_different_secrets_give_different_names(self):
+        names = {room_group_name(secret, "questions") for secret in SPECIAL_SECRETS.values()}
+        self.assertEqual(len(names), len(SPECIAL_SECRETS))
+
+    def test_same_secret_in_different_modes_gives_different_names(self):
+        modes = ["questions", "truth", "challenge", "spicy", "mixed", "would"]
+        self.assertEqual(len({room_group_name("sunflower", m) for m in modes}), len(modes))
+
+    def test_secret_and_mode_cannot_be_shifted_into_each_other(self):
+        # The old "game_{secret}_{mode}" naming put these two in one room.
+        self.assertNotEqual(
+            room_group_name("love_truth", "questions"), room_group_name("love", "truth_questions")
+        )
+
+    def test_name_never_contains_the_raw_secret(self):
+        for secret in ["sunflower", "lovebirds", "s" * 100]:
+            with self.subTest(secret=secret[:20]):
+                self.assertNotIn(secret, room_group_name(secret, "questions"))
+
+    def test_name_is_keyed_by_the_server_secret_key(self):
+        with override_settings(SECRET_KEY="one-test-key"):
+            first = room_group_name("sunflower", "questions")
+        with override_settings(SECRET_KEY="another-test-key"):
+            second = room_group_name("sunflower", "questions")
+        self.assertNotEqual(first, second)
+
+
+def encoded_path(secret, mode="questions"):
+    """The path the page builds with encodeURIComponent."""
+    return f"/ws/game/{quote(secret, safe='')}/{quote(mode, safe='')}/"
+
+
+@override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
+class RoomIsolationTests(SimpleTestCase):
+    def exchange(self, sender_path, receiver_path):
+        """Send a question on one path; return what the other path receives."""
+
+        async def run():
+            application = importlib.reload(me_nd_you.asgi).application
+            sender = WebsocketCommunicator(application, sender_path, headers=[(b"origin", ORIGIN)])
+            receiver = WebsocketCommunicator(application, receiver_path, headers=[(b"origin", ORIGIN)])
+            assert (await sender.connect())[0] and (await receiver.connect())[0]
+            await sender.send_json_to({"type": "question", "userId": "s", "question": "Private?"})
+            try:
+                received = await receiver.receive_json_from(timeout=0.5)
+            except Exception:
+                received = None
+            await close(sender, receiver)
+            return received
+
+        return async_to_sync(run)()
+
+    def test_partners_with_special_secrets_can_play_together(self):
+        for label, secret in SPECIAL_SECRETS.items():
+            with self.subTest(secret=label):
+                path = encoded_path(secret)
+                self.assertEqual(self.exchange(path, path)["question"], "Private?")
+
+    def test_crafted_mode_cannot_eavesdrop_on_another_couple(self):
+        victim = encoded_path("love_truth", "questions")
+        eavesdropper = encoded_path("love", "truth_questions")
+        self.assertIsNone(self.exchange(victim, eavesdropper))
+
+    def test_same_secret_in_another_mode_is_a_separate_room(self):
+        self.assertIsNone(self.exchange(encoded_path("sunflower", "questions"),
+                                        encoded_path("sunflower", "truth")))
