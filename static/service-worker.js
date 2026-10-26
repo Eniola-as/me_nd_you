@@ -1,10 +1,9 @@
-const CACHE_NAME = "couple-game-cache-v1";
+// Bump the version whenever cached files change so old caches are dropped.
+const CACHE_NAME = "couple-game-cache-v2";
 const urlsToCache = [
-  "/",
-  "/modes/",
-  "/play/",
   "/static/manifest.json",
-  "/static/icons/icon.jpg"
+  "/static/icons/icon-192.png",
+  "/static/icons/icon-512.png"
 ];
 
 self.addEventListener("install", event => {

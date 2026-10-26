@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,8 +21,8 @@
       href="{% static 'manifest.json' %}"
       crossorigin="use-credentials"
     />
-    <link rel="icon" href="{% static 'icons/icon.jpg' %}" />
-    <link rel="apple-touch-icon" href="{% static 'icons/icon.jpg' %}" />
+    <link rel="icon" type="image/png" href="{% static 'icons/icon-192.png' %}" />
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}" />
     <meta name="theme-color" content="#e75480" />
 
     <link
@@ -31,6 +31,10 @@
     />
 
     <style>
+      :root {
+        --accent: #ff4c61;
+      }
+
       html,
       body {
         height: 100%;
@@ -224,6 +228,12 @@
         width: 100%;
       }
 
+      .form-group label {
+        display: block;
+        font-size: 14px;
+        color: #ddd;
+      }
+
       .form-group small {
         color: #aaa;
         display: block;
@@ -260,7 +270,7 @@
   <body>
     <div class="main-content">
       <div class="login-container">
-        <svg viewBox="0 0 24 24">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 
                  2 6.5 3.5 5 5.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 
@@ -271,42 +281,55 @@
 
         <h1>Me & You</h1>
 
+        <button type="button" id="resumeBtn" hidden></button>
+
         <form onsubmit="startSession(event)">
           <div class="form-group">
+            <label for="partner1_name">Your name</label>
             <input
               type="text"
+              id="partner1_name"
               name="partner1_name"
-              placeholder="Your Name"
+              autocomplete="given-name"
+              aria-describedby="name1Error"
+              placeholder="e.g. Ann"
               required
               minlength="2"
-              pattern="[A-Za-z ]+"
-              title="Letters and spaces only"
+              pattern="[\p{L}\p{M}][\p{L}\p{M} '’.\-]*"
+              title="Letters, spaces, apostrophes or hyphens"
             />
             <small class="error-text" id="name1Error"></small>
           </div>
 
           <div class="form-group">
+            <label for="partner2_name">Your partner's name</label>
             <input
               type="text"
+              id="partner2_name"
               name="partner2_name"
-              placeholder="Partner's Name"
+              autocomplete="off"
+              aria-describedby="name2Error"
+              placeholder="e.g. Ben"
               required
               minlength="2"
-              pattern="[A-Za-z ]+"
-              title="Letters and spaces only"
+              pattern="[\p{L}\p{M}][\p{L}\p{M} '’.\-]*"
+              title="Letters, spaces, apostrophes or hyphens"
             />
             <small class="error-text" id="name2Error"></small>
           </div>
 
           <div class="form-group">
+            <label for="secret_word">Secret word</label>
             <input
               type="text"
+              id="secret_word"
               name="secret_word"
-              placeholder="Secret Word"
+              autocomplete="off"
+              aria-describedby="secretHelp secretError"
               required
               minlength="4"
             />
-            <small class="help-text"
+            <small class="help-text" id="secretHelp"
               >Share this word with your partner to play together</small
             >
             <small class="error-text" id="secretError"></small>
@@ -314,6 +337,7 @@
 
           <button type="submit" id="submitBtn">Start Game</button>
           <div id="loadingIndicator" style="display: none">Connecting...</div>
+          <p id="formStatus" class="help-text" role="status"></p>
         </form>
       </div>
       <div class="pwa-actions">
@@ -344,6 +368,8 @@
         const loadingIndicator = document.getElementById("loadingIndicator");
 
         // Clear previous errors
+        const formStatus = document.getElementById("formStatus");
+        formStatus.textContent = "";
         document
           .querySelectorAll(".error-text")
           .forEach((el) => (el.textContent = ""));
@@ -367,11 +393,13 @@
           const data = await res.json();
 
           if (data.success) {
-            // Store session with mode-specific key
-            localStorage.removeItem('session'); // Remove old session format
+            // Remembered so the installed app can resume without retyping.
             localStorage.setItem(
-              `session-${data.session.secret}`,
-              JSON.stringify(data.session)
+              "lastSession",
+              JSON.stringify({
+                secret: data.session.secret,
+                names: data.session.names,
+              })
             );
             window.location.href = data.redirect;
           } else {
@@ -390,17 +418,35 @@
             }
             // General error
             if (data.detail) {
-              alert(data.detail);
+              formStatus.textContent = data.detail;
             }
           }
         } catch (err) {
           console.error("Login error:", err);
-          alert("Connection error. Please try again.");
+          formStatus.textContent = "Connection error. Please try again.";
         } finally {
           submitBtn.disabled = false;
           loadingIndicator.style.display = "none";
         }
       }
+
+      // Offer to continue the last session (the installed app starts here).
+      function offerResume() {
+        let saved;
+        try {
+          saved = JSON.parse(localStorage.getItem("lastSession"));
+        } catch (err) {
+          return;
+        }
+        if (!saved || !saved.secret || !Array.isArray(saved.names)) return;
+        const resumeBtn = document.getElementById("resumeBtn");
+        resumeBtn.textContent = `Continue as ${saved.names.join(" & ")}`;
+        resumeBtn.hidden = false;
+        resumeBtn.addEventListener("click", () => {
+          window.location.href = `/modes/?secret=${encodeURIComponent(saved.secret)}`;
+        });
+      }
+      offerResume();
 
       // PWA Installation
       let deferredPrompt;
@@ -461,5 +507,4 @@
       }
     </script>
   </body>
-</html>
 </html>

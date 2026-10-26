@@ -17,8 +17,8 @@
       href="{% static 'manifest.json' %}"
       crossorigin="use-credentials"
     />
-    <link rel="icon" href="{% static 'icons/icon.jpg' %}" />
-    <link rel="apple-touch-icon" href="{% static 'icons/icon.jpg' %}" />
+    <link rel="icon" type="image/png" href="{% static 'icons/icon-192.png' %}" />
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}" />
     <meta name="theme-color" content="#111111" />
 
     <link
@@ -57,12 +57,29 @@
         margin-bottom: 20px;
       }
       .flip-container {
+        display: block;
+        flex: none;
+        padding: 0;
+        background: none;
+        border: none;
+        color: inherit;
+        font: inherit;
         perspective: 1200px;
         width: 90%;
         max-width: 400px;
         height: 250px;
       }
+      .flip-container:hover {
+        background: none;
+        color: inherit;
+      }
+      .flip-container:focus-visible {
+        outline: 3px solid var(--accent-hover);
+        outline-offset: 4px;
+        border-radius: 16px;
+      }
       .flipper {
+        display: block;
         position: relative;
         width: 100%;
         height: 100%;
@@ -120,21 +137,19 @@
         background: var(--accent-hover);
         color: #222;
       }
-      #add-modal {
-        position: fixed;
-        inset: 0;
+      dialog {
+        background: var(--bg);
+        color: white;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 25px;
+        width: min(400px, 90vw);
+      }
+      dialog::backdrop {
         background: rgba(0, 0, 0, 0.9);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
       }
       #add-modal form {
-        background: var(--bg);
-        padding: 25px;
-        border-radius: 16px;
-        width: 100%;
-        max-width: 400px;
+        position: relative;
         display: flex;
         flex-direction: column;
         gap: 15px;
@@ -154,40 +169,39 @@
         gap: 10px;
       }
       .close-btn {
+        flex: none;
         background: none;
         border: none;
         color: #aaa;
         font-size: 20px;
         position: absolute;
-        top: 10px;
-        right: 15px;
+        top: -15px;
+        right: -10px;
+        padding: 8px;
         cursor: pointer;
       }
-      /* Add guide modal styles */
-      .modal {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.9);
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-      }
-      .modal-content {
-        background: var(--glass);
-        border: 1px solid var(--border);
-        padding: 25px;
-        border-radius: 16px;
-        max-width: 90%;
-        width: 400px;
+      #guide-modal {
         text-align: center;
       }
-      .modal-content h3 {
+      #guide-modal h3 {
         color: var(--accent);
         margin-bottom: 20px;
       }
-      .modal-content p {
+      #guide-modal p {
         margin: 10px 0;
+      }
+      #feedback {
+        min-height: 1.4em;
+        margin: 10px 0 0;
+        color: #ddd;
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
     </style>
   </head>
@@ -195,19 +209,28 @@
     <h2>Let’s Play!</h2>
     <div id="mode-title">...loading</div>
 
-    <div class="flip-container" id="flip-container">
-      <div class="flipper">
-        <div class="side front" id="card-front">Loading...</div>
-        <div class="side back" id="card-back">Mode Name</div>
-      </div>
-    </div>
+    <button
+      type="button"
+      class="flip-container"
+      id="flip-container"
+      aria-describedby="flip-hint"
+    >
+      <span class="flipper">
+        <span class="side front" id="card-front">Loading...</span>
+        <span class="side back" id="card-back" aria-hidden="true"></span>
+      </span>
+    </button>
+    <p id="flip-hint" class="visually-hidden">Tap the card to flip it.</p>
+    <p id="card-status" class="visually-hidden" role="status"></p>
 
     <div class="buttons">
-      <button id="nextBtn">Next Question</button>
-      <button id="switchBtn">Switch Mode</button>
-      <button id="addBtn">Add Question</button>
-      <button id="resetBtn">Reset</button>
+      <button type="button" id="nextBtn">Next Question</button>
+      <button type="button" id="switchBtn">Switch Mode</button>
+      <button type="button" id="addBtn">Add Question</button>
+      <button type="button" id="resetBtn">Reset</button>
     </div>
+
+    <p id="feedback" role="status"></p>
 
     <div
       id="remaining-counter"
@@ -216,33 +239,36 @@
       Remaining: <span id="remaining-count">...</span>
     </div>
 
-    <div id="add-modal">
+    <dialog id="add-modal" aria-labelledby="add-modal-title">
       <form onsubmit="submitQuestion(event)">
-        <button type="button" class="close-btn" onclick="closeModal()">
-          ✖
-        </button>
+        <button
+          type="button"
+          class="close-btn"
+          aria-label="Close"
+          onclick="closeModal()"
+        >✖</button>
+        <label id="add-modal-title" for="new-question">Your question</label>
         <textarea
           id="new-question"
-          placeholder="Your question..."
+          placeholder="Write a question for you both..."
           required
         ></textarea>
         <div class="modal-buttons">
           <button type="submit">Add</button>
         </div>
       </form>
-    </div>
+    </dialog>
 
-    <!-- Add guide modal -->
-    <div id="guide-modal" class="modal">
-      <div class="modal-content">
-        <h3>How to Play</h3>
-        <p>1. Take turns reading questions</p>
-        <p>2. Both partners must answer honestly</p>
-        <p>3. Add your own questions anytime</p>
-        <button onclick="closeGuide()">Got it!</button>
-      </div>
-    </div>
+    <dialog id="guide-modal" aria-labelledby="guide-title">
+      <h3 id="guide-title">How to Play</h3>
+      <p>1. Take turns reading questions</p>
+      <p>2. Both partners must answer honestly</p>
+      <p>3. Add your own questions anytime</p>
+      <button type="button" onclick="closeGuide()">Got it!</button>
+    </dialog>
 
+    <script src="{% static 'js/socket-client.js' %}"></script>
+    <script src="{% static 'js/card.js' %}"></script>
     <script>
       const params = new URLSearchParams(window.location.search);
       const mode = params.get("mode");
@@ -262,30 +288,21 @@
 
       const myUserId = Math.random().toString(36).substr(2, 9);
 
-      function flipCard() {
-        container.classList.toggle("flipped");
+      const card = createCard({
+        container,
+        front: cardFront,
+        back: cardBack,
+        status: document.getElementById("card-status"),
+      });
+      const feedback = document.getElementById("feedback");
+
+      function showFeedback(message) {
+        feedback.textContent = message;
       }
+      const FINISHED_MESSAGE = "🎉 All questions finished. Click Reset.";
 
-      function flipBackIfNeeded(clean) {
-        if (container.classList.contains("flipped")) flipCard();
-        if (clean) container.offsetWidth;
-      }
-
-      // Update card click handling
-      const flipCardHandler = (e) => {
-        e.preventDefault();
-        flipCard();
-      };
-
-      // Remove old event listener if exists
-      container.removeEventListener("click", flipCardHandler);
-      container.removeEventListener("touchend", flipCardHandler);
-
-      // Add both click and touch events
-      container.addEventListener("click", flipCardHandler);
-      container.addEventListener("touchend", flipCardHandler);
-
-      // Make card clickable by updating cursor style
+      // A tap also fires click, so one listener covers mouse and touch.
+      container.addEventListener("click", () => card.flip());
       container.style.cursor = "pointer";
 
       function mulberry32(a) {
@@ -348,7 +365,9 @@
 
       async function loadQuestions() {
         try {
-          const res = await fetch(`/api/questions/${mode}?secret=${secret}`);
+          const res = await fetch(
+            `/api/questions/${encodeURIComponent(mode)}/?secret=${encodeURIComponent(secret)}`
+          );
           questions = await res.json();
 
           loadSession();
@@ -362,10 +381,9 @@
           updateRemaining();
 
           if (remaining.length) nextQuestion();
-          else
-            cardFront.textContent = "🎉 All questions finished. Click Reset.";
+          else card.showMessage(FINISHED_MESSAGE);
         } catch (err) {
-          cardFront.textContent = "⚠ Failed to load questions.";
+          card.showMessage("⚠ Failed to load questions.");
           console.error("Fetch error:", err);
         }
       }
@@ -377,7 +395,7 @@
 
       function nextQuestion() {
         if (!remaining.length) {
-          cardFront.textContent = "🎉 All questions finished. Click Reset.";
+          card.showMessage(FINISHED_MESSAGE);
           return;
         }
 
@@ -391,26 +409,19 @@
           questions: [q1.text],
         };
 
-        flipBackIfNeeded();
-        setTimeout(() => {
-          cardFront.textContent = q1.text;
-          flipCard();
-        }, 300);
-
-        safeSend(JSON.stringify(payload));
+        card.showQuestion(q1.text);
+        socketClient.send(payload);
       }
 
       function resetSession() {
         seenTexts = [];
         seed = Date.now() % 1000000000;
         saveSession();
-        safeSend(
-          JSON.stringify({
-            type: "reset",
-            userId: myUserId,
-            seed: seed,
-          })
-        );
+        socketClient.send({
+          type: "reset",
+          userId: myUserId,
+          seed: seed,
+        });
         loadQuestions();
       }
 
@@ -421,9 +432,7 @@
       document.getElementById("switchBtn").addEventListener("click", () => {
         window.location.href = `/modes/?secret=${encodeURIComponent(secret)}`;
       });
-      document.getElementById("addBtn").addEventListener("click", () => {
-        document.getElementById("add-modal").style.display = "flex";
-      });
+      document.getElementById("addBtn").addEventListener("click", openModal);
       document
         .getElementById("resetBtn")
         .addEventListener("click", resetSession);
@@ -439,11 +448,11 @@
       });
 
       function openModal() {
-        document.getElementById("add-modal").style.display = "flex";
+        document.getElementById("add-modal").showModal();
       }
 
       function closeModal() {
-        document.getElementById("add-modal").style.display = "none";
+        document.getElementById("add-modal").close();
       }
 
       async function submitQuestion(e) {
@@ -469,155 +478,35 @@
             //     userId: myUserId,
             //     question: q,
             // }));
-            alert("✅ Added!");
+            showFeedback("✅ Question added.");
           } else {
-            alert("❌ Failed to add.");
+            showFeedback("❌ Couldn't add your question. Please try again.");
           }
         } catch (err) {
           console.error("Error adding question:", err);
-          alert("❌ Failed to add.");
+          showFeedback("❌ Couldn't add your question. Please try again.");
         }
       }
 
-      let socket;
-      let reconnectAttempts = 0;
-      const MAX_RECONNECT_ATTEMPTS = 5;
-      let messageQueue = [];
-      let isReconnecting = false;
-
-      function connectWebSocket() {
-        if (
-          isReconnecting ||
-          (socket && socket.readyState === WebSocket.OPEN)
-        ) {
-          return;
-        }
-
-        const wsUrl = getWebSocketUrl();
-        if (!wsUrl) {
-          console.error("Invalid WebSocket URL");
-          return;
-        }
-
-        try {
-          socket = new WebSocket(wsUrl);
-          isReconnecting = true;
-
-          socket.onopen = function () {
-            console.log("WebSocket connected to:", wsUrl);
-            reconnectAttempts = 0;
-            isReconnecting = false;
-            processMessageQueue();
-          };
-
-          socket.onclose = function (event) {
-            if (!isReconnecting) {
-              console.warn("WebSocket disconnected with code:", event.code);
-              console.warn("Reason:", event.reason || "No reason provided");
-              reconnectWithBackoff();
-            }
-          };
-
-          socket.onerror = function (err) {
-            console.error("WebSocket error:", err);
-            if (socket.readyState === WebSocket.OPEN) {
-              socket.close();
-            }
-            if (!isReconnecting) {
-              reconnectWithBackoff();
-            }
-          };
-
-          socket.onmessage = function (e) {
-            try {
-              const data = JSON.parse(e.data);
-              if (data.type === "sync_request") {
-                // Send current state when requested
-                safeSend(
-                  JSON.stringify({
-                    type: "sync_response",
-                    userId: myUserId,
-                    state: {
-                      seed,
-                      seenTexts,
-                      currentQuestion: cardFront.textContent,
-                    },
-                  })
-                );
-                return;
-              }
-              handleWebSocketMessage(data);
-            } catch (err) {
-              console.error("Error processing message:", err);
-            }
-          };
-        } catch (err) {
-          console.error("Failed to create WebSocket:", err);
-          reconnectWithBackoff();
-        }
-      }
-
-      function safeSend(data) {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          try {
-            socket.send(data);
-          } catch (err) {
-            console.warn("Failed to send, queueing message");
-            messageQueue.push(data);
+      const socketClient = createSocketClient({
+        url: getWebSocketUrl(),
+        onMessage(data) {
+          if (data.type === "sync_request") {
+            // Send current state when requested
+            socketClient.send({
+              type: "sync_response",
+              userId: myUserId,
+              state: {
+                seed,
+                seenTexts,
+                currentQuestion: card.currentQuestion(),
+              },
+            });
+            return;
           }
-        } else {
-          console.warn("Socket not ready, queueing message");
-          messageQueue.push(data);
-
-          // Ensure the WebSocket connection is established
-          if (!isReconnecting) {
-            connectWebSocket();
-          }
-
-          // Wait for the WebSocket to open and send queued messages
-          socket.addEventListener(
-            "open",
-            () => {
-              processMessageQueue();
-            },
-            { once: true }
-          );
-        }
-      }
-
-      function processMessageQueue() {
-        while (
-          messageQueue.length > 0 &&
-          socket &&
-          socket.readyState === WebSocket.OPEN
-        ) {
-          try {
-            const msg = messageQueue.shift();
-            socket.send(msg);
-          } catch (err) {
-            console.warn("Failed to send queued message:", err);
-            messageQueue.unshift(msg); // Put message back at front of queue
-            break;
-          }
-        }
-      }
-
-      function reconnectWithBackoff() {
-        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS || isReconnecting)
-          return;
-
-        isReconnecting = true;
-        const backoffTime = Math.min(
-          1000 * Math.pow(2, reconnectAttempts),
-          10000
-        );
-        reconnectAttempts++;
-
-        setTimeout(() => {
-          isReconnecting = false;
-          connectWebSocket();
-        }, backoffTime);
-      }
+          handleWebSocketMessage(data);
+        },
+      });
 
       // Update the handleWebSocketMessage function
       function handleWebSocketMessage(data) {
@@ -630,11 +519,7 @@
         }
 
         if (data.userId && data.questions && data.userId !== myUserId) {
-          flipBackIfNeeded();
-          setTimeout(() => {
-            cardFront.textContent = data.questions[0];
-            flipCard();
-          }, 300);
+          card.showQuestion(data.questions[0]);
         }
       }
 
@@ -676,11 +561,13 @@
         }
 
         try {
-          const res = await fetch(`/api/check-session/?secret=${secret}`);
+          const res = await fetch(
+            `/api/check-session/?secret=${encodeURIComponent(secret)}`
+          );
           const data = await res.json();
           if (!data.valid) {
-            alert("Session expired. Please login again.");
-            window.location.href = "/";
+            showFeedback("Your session expired. Taking you back to log in...");
+            setTimeout(() => (window.location.href = "/"), 2000);
           }
         } catch (err) {
           console.error("Session check failed:", err);
@@ -691,18 +578,18 @@
       function showGuide() {
         const hasSeenGuide = localStorage.getItem("hasSeenGuide");
         if (!hasSeenGuide) {
-          document.getElementById("guide-modal").style.display = "flex";
+          document.getElementById("guide-modal").showModal();
           localStorage.setItem("hasSeenGuide", "true");
         }
       }
 
       function closeGuide() {
-        document.getElementById("guide-modal").style.display = "none";
+        document.getElementById("guide-modal").close();
       }
 
       // Add to initialization
       document.addEventListener("DOMContentLoaded", () => {
-        connectWebSocket();
+        socketClient.connect();
         loadQuestions();
         // checkSession();  // Remove this
         showGuide();
