@@ -157,6 +157,11 @@ class DatabaseConstraintTests(TestCase):
 
 @skipUnless(connection.vendor == "postgresql", "Real concurrency needs PostgreSQL.")
 class ConcurrentRedemptionTests(TransactionTestCase):
+    # Restore the database snapshot afterwards, like the other database-level
+    # test classes. Without it, this class's cleanup re-creates content types
+    # with new ids and later snapshot restores collide with them.
+    serialized_rollback = True
+
     def race(self, attempts):
         barrier = threading.Barrier(len(attempts))
         results = []
