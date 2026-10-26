@@ -17,13 +17,28 @@ from .serializers import CustomQuestionSerializer, LoginSerializer
 logger = logging.getLogger(__name__)
 
 
-class LoginRateThrottle(SimpleRateThrottle):
-    """Limits login attempts per client IP (rate set in settings)."""
+class ClientRateThrottle(SimpleRateThrottle):
+    """Per-client limit for one scope (rates are set in settings).
 
-    scope = "login"
+    Clients are identified by address (see REST_FRAMEWORK["NUM_PROXIES"]).
+    Counts live in Django's default cache, which is in-memory and therefore
+    per process: a scaled deployment needs a shared cache for these to hold.
+    """
 
     def get_cache_key(self, request, view):
         return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
+
+
+class LoginRateThrottle(ClientRateThrottle):
+    scope = "login"
+
+
+class QuestionsRateThrottle(ClientRateThrottle):
+    scope = "questions"
+
+
+class CustomQuestionRateThrottle(ClientRateThrottle):
+    scope = "custom_questions"
 
 
 @csrf_exempt
@@ -113,6 +128,7 @@ VALID_MODES = {value for value, _ in Question.MODES}
 
 
 @api_view(["GET"])
+@throttle_classes([QuestionsRateThrottle])
 def get_questions(request, mode):
     if mode not in VALID_MODES:
         return Response({"detail": "Unknown game mode."}, status=400)
@@ -162,6 +178,7 @@ def get_questions(request, mode):
 # Requests are authorised by the submitted secret, not a Django login, so
 # session authentication (and its CSRF check for logged-in users) is skipped.
 @authentication_classes([])
+@throttle_classes([CustomQuestionRateThrottle])
 def add_custom_question(request):
     serializer = CustomQuestionSerializer(data=request.data)
     if not serializer.is_valid():

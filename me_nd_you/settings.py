@@ -151,8 +151,13 @@ TRUSTED_PROXY_COUNT = config("TRUSTED_PROXY_COUNT", default=None, cast=lambda v:
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"]
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
-    # Slows down guessing other couples' secret words.
-    "DEFAULT_THROTTLE_RATES": {"login": "10/min"},
+    # Per-client limits on everything that takes a secret word, to slow down
+    # guessing other couples' secrets and spamming custom questions.
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/min",
+        "questions": "30/min",
+        "custom_questions": "10/min",
+    },
     # How many proxies in front of the app append to X-Forwarded-For. Rate
     # limits identify clients by the address the last trusted proxy added;
     # anything earlier in the header is client-supplied and can be faked.
