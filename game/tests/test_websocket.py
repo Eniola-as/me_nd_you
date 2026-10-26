@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 from asgiref.sync import async_to_sync
 from channels.testing import WebsocketCommunicator
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import SimpleTestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 import me_nd_you.asgi
@@ -22,11 +22,18 @@ def couple_secrets():
     return fixed + [s for s in SPECIAL_SECRETS.values() if len(s) <= 100 and s not in fixed]
 
 
-class CoupleRoomsTestCase(TestCase):
-    """Rooms only open for an existing, unexpired couple session."""
+class CoupleRoomsTestCase(TransactionTestCase):
+    """Rooms only open for an existing, unexpired couple session.
 
-    @classmethod
-    def setUpTestData(cls):
+    TransactionTestCase, not TestCase: the consumer reads the database
+    through database_sync_to_async, which closes connections that are
+    inside a transaction. SQLite's in-memory test database ignores that
+    close; PostgreSQL doesn't, so TestCase only worked on SQLite.
+    """
+
+    serialized_rollback = True  # Restore the question bank for later tests.
+
+    def setUp(self):
         for n, secret in enumerate(couple_secrets()):
             CoupleSession.objects.create(
                 partner1_name=f"Partner{n}a", partner2_name=f"Partner{n}b", secret_word=secret
