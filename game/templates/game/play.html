@@ -268,6 +268,7 @@
     </dialog>
 
     <script src="{% static 'js/socket-client.js' %}"></script>
+    <script src="{% static 'js/game-messages.js' %}"></script>
     <script src="{% static 'js/card.js' %}"></script>
     <script>
       const params = new URLSearchParams(window.location.search);
@@ -287,6 +288,13 @@
         seed = urlSeed ? parseInt(urlSeed) : null;
 
       const myUserId = Math.random().toString(36).substr(2, 9);
+      // The question on this page's card, shared when the partner syncs.
+      let currentQuestionText = null;
+      // Sync rules: adopt the partner's question after (re)connecting, unless
+      // this page pressed Next or Reset while offline (that question is
+      // queued and reaches the partner on reconnect) or since connecting.
+      let ownQuestionPending = false;
+      let acceptSync = false;
 
       const card = createCard({
         container,
@@ -363,7 +371,10 @@
         localStorage.setItem(key, JSON.stringify({ seen: seenTexts, seed }));
       }
 
-      async function loadQuestions() {
+      // showFirst: show a question once loaded. announce: also send it to the
+      // partner (only Next and Reset do; the first question on page load is
+      // local, so a newly opened page can adopt the partner's question).
+      async function loadQuestions({ showFirst = true, announce = false } = {}) {
         try {
           const res = await fetch(
             `/api/questions/${encodeURIComponent(mode)}/?secret=${encodeURIComponent(secret)}`
@@ -380,8 +391,10 @@
           shuffle(questions, seed);
           updateRemaining();
 
-          if (remaining.length) nextQuestion();
-          else card.showMessage(FINISHED_MESSAGE);
+          if (!remaining.length) card.showMessage(FINISHED_MESSAGE);
+          // A question already on the card (adopted from the partner, who may
+          // have answered before this load finished) wins over a local pick.
+          else if (showFirst && (announce || !currentQuestionText)) nextQuestion({ announce });
         } catch (err) {
           card.showMessage("⚠ Failed to load questions.");
           console.error("Fetch error:", err);
@@ -393,8 +406,9 @@
         remainingCountSpan.textContent = remaining.length;
       }
 
-      function nextQuestion() {
+      function nextQuestion({ announce = true } = {}) {
         if (!remaining.length) {
+          currentQuestionText = null;
           card.showMessage(FINISHED_MESSAGE);
           return;
         }
@@ -404,31 +418,31 @@
         saveSession();
         updateRemaining();
 
-        const payload = {
-          userId: myUserId,
-          questions: [q1.text],
-        };
-
+        currentQuestionText = q1.text;
         card.showQuestion(q1.text);
-        socketClient.send(payload);
+        if (announce) {
+          if (!socketClient.isOpen) ownQuestionPending = true;
+          acceptSync = false;
+          socketClient.send(GameMessages.question(myUserId, q1.text));
+        }
+      }
+
+      function clearProgress(newSeed) {
+        seenTexts = [];
+        seed = newSeed;
+        saveSession();
       }
 
       function resetSession() {
-        seenTexts = [];
-        seed = Date.now() % 1000000000;
-        saveSession();
-        socketClient.send({
-          type: "reset",
-          userId: myUserId,
-          seed: seed,
-        });
-        loadQuestions();
+        clearProgress(Date.now() % 1000000000);
+        socketClient.send(GameMessages.reset(myUserId, seed));
+        loadQuestions({ announce: true });
       }
 
       // Add event listeners instead of inline onclick
       document
         .getElementById("nextBtn")
-        .addEventListener("click", nextQuestion);
+        .addEventListener("click", () => nextQuestion());
       document.getElementById("switchBtn").addEventListener("click", () => {
         window.location.href = `/modes/?secret=${encodeURIComponent(secret)}`;
       });
@@ -473,11 +487,6 @@
             remaining.push(q);
             updateRemaining();
             closeModal();
-            // safeSend(JSON.stringify({  // Disabled WebSocket send
-            //     type: "new_question",
-            //     userId: myUserId,
-            //     question: q,
-            // }));
             showFeedback("✅ Question added.");
           } else {
             showFeedback("❌ Couldn't add your question. Please try again.");
@@ -490,38 +499,40 @@
 
       const socketClient = createSocketClient({
         url: getWebSocketUrl(),
+        onOpen() {
+          // After every (re)connection, catch up with the partner's question.
+          acceptSync = !ownQuestionPending;
+          ownQuestionPending = false;
+          socketClient.send(GameMessages.syncRequest(myUserId));
+        },
         onMessage(data) {
-          if (data.type === "sync_request") {
-            // Send current state when requested
-            socketClient.send({
-              type: "sync_response",
-              userId: myUserId,
-              state: {
-                seed,
-                seenTexts,
-                currentQuestion: card.currentQuestion(),
-              },
-            });
-            return;
+          // Malformed, unknown and this page's own messages come back as null.
+          const message = GameMessages.parse(data, myUserId);
+          if (!message) return;
+          switch (message.type) {
+            case "question":
+              currentQuestionText = message.question;
+              card.showQuestion(message.question);
+              break;
+            case "reset":
+              // Start over too, then wait for the partner's first question.
+              clearProgress(message.seed);
+              loadQuestions({ showFirst: false });
+              break;
+            case "sync_request":
+              socketClient.send(
+                GameMessages.syncResponse(myUserId, seed, currentQuestionText)
+              );
+              break;
+            case "sync_response":
+              if (acceptSync && message.currentQuestion) {
+                currentQuestionText = message.currentQuestion;
+                card.showQuestion(message.currentQuestion);
+              }
+              break;
           }
-          handleWebSocketMessage(data);
         },
       });
-
-      // Update the handleWebSocketMessage function
-      function handleWebSocketMessage(data) {
-        // Handle only question-related messages
-        if (data.type === "new_question" && data.userId !== myUserId) {
-          questions.push(data.question);
-          remaining.push(data.question);
-          updateRemaining();
-          return;
-        }
-
-        if (data.userId && data.questions && data.userId !== myUserId) {
-          card.showQuestion(data.questions[0]);
-        }
-      }
 
       const modeMap = {
         questions: "Questions",

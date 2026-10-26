@@ -100,6 +100,39 @@ test("passes parsed messages to onMessage and ignores invalid JSON", () => {
   assert.deepEqual(received, [{ type: "reset" }]);
 });
 
+test("onOpen runs on the first connection and on every reconnection", () => {
+  let opens = 0;
+  const { client, runTimers, sockets } = setup({ onOpen: () => opens++ });
+  client.connect();
+  sockets[0].open();
+  assert.equal(opens, 1);
+  sockets[0].fail();
+  runTimers();
+  sockets[1].open();
+  assert.equal(opens, 2);
+});
+
+test("a message sent from onOpen goes out after the queued ones", () => {
+  let client;
+  ({ client } = setup({ onOpen: () => client.send({ type: "sync_request" }) }));
+  const sockets = FakeSocket.instances;
+  client.connect();
+  client.send({ type: "question" });
+  sockets[0].open();
+  assert.deepEqual(sockets[0].sent, ['{"type":"question"}', '{"type":"sync_request"}']);
+});
+
+test("isOpen reports whether messages go out immediately", () => {
+  const { client, sockets } = setup();
+  assert.equal(client.isOpen, false);
+  client.connect();
+  assert.equal(client.isOpen, false); // Still connecting.
+  sockets[0].open();
+  assert.equal(client.isOpen, true);
+  sockets[0].fail();
+  assert.equal(client.isOpen, false);
+});
+
 test("a send while offline after giving up starts a fresh attempt", () => {
   const { client, runTimers, sockets } = setup({ maxAttempts: 1 });
   client.connect();

@@ -6,6 +6,9 @@
   function createSocketClient({
     url,
     onMessage,
+    // Called after every successful (re)connection, once queued messages
+    // have been sent.
+    onOpen = () => {},
     WebSocketImpl = root.WebSocket,
     schedule = (fn, ms) => setTimeout(fn, ms),
     maxAttempts = 5,
@@ -22,6 +25,7 @@
       socket.onopen = () => {
         attempts = 0;
         flush();
+        onOpen();
       };
       socket.onmessage = (event) => {
         let data;
@@ -80,6 +84,9 @@
       send,
       get queueLength() {
         return queue.length;
+      },
+      get isOpen() {
+        return Boolean(socket) && socket.readyState === OPEN;
       },
     };
   }
