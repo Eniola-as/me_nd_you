@@ -56,6 +56,16 @@ class CoupleSession(models.Model):
         CoupleSession.objects.filter(pk=self.pk).update(last_active=self.last_active)
 
     @classmethod
+    def find_active(cls, secret):
+        """The session for a secret, or None if it is unknown or expired.
+        Callers treat both the same, so expiry never reveals that a secret
+        exists. Logging in again renews an expired session."""
+        session = cls.objects.filter(secret_word=secret).first()
+        if session is None or session.is_expired():
+            return None
+        return session
+
+    @classmethod
     def inactive(cls):
         return cls.objects.filter(last_active__lt=timezone.now() - cls.INACTIVITY_LIMIT)
 

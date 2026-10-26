@@ -133,11 +133,9 @@ def get_questions(request, mode):
     if mode not in VALID_MODES:
         return Response({"detail": "Unknown game mode."}, status=400)
 
-    secret_word = request.GET.get("secret")
-    try:
-        session = CoupleSession.objects.get(secret_word=secret_word)
-    except CoupleSession.DoesNotExist:
-        return Response([], status=200)  # Return empty array if session not found
+    session = CoupleSession.find_active(request.GET.get("secret"))
+    if session is None:
+        return Response([], status=200)  # Unknown or expired: same answer.
     session.touch()
 
     # Keyed by session id so the secret never ends up in the cache.
@@ -187,8 +185,8 @@ def add_custom_question(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     data = serializer.validated_data
-    session = CoupleSession.objects.filter(secret_word=data["secret"]).first()
-    if session is None:
+    session = CoupleSession.find_active(data["secret"])
+    if session is None:  # Unknown or expired: same answer.
         return Response({"detail": "Session not found."}, status=status.HTTP_404_NOT_FOUND)
     session.touch()
 

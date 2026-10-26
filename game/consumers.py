@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings
 
@@ -69,15 +70,35 @@ def room_group_name(secret, mode):
     return f"game.{digest}"
 
 
+@database_sync_to_async
+def open_session(secret):
+    """True if the secret belongs to an active session, which then counts as
+    active. Unknown and expired secrets are refused the same way."""
+    # Imported here: asgi.py loads this module before Django's apps are ready.
+    from .models import CoupleSession
+
+    session = CoupleSession.find_active(secret)
+    if session is None:
+        return False
+    session.touch()
+    return True
+
+
 class GameConsumer(AsyncWebsocketConsumer):
+    room_group_name = None
+
     async def connect(self):
         route = self.scope["url_route"]["kwargs"]
+        if not await open_session(route["room_name"]):
+            await self.close()
+            return
         self.room_group_name = room_group_name(route["room_name"], route["mode"])
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        if self.room_group_name:  # Not set when the connection was refused.
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):
         if len(text_data) > MAX_MESSAGE_CHARS:

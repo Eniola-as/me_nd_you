@@ -1,15 +1,36 @@
 import importlib
 import re
+from datetime import timedelta
 from urllib.parse import quote
 
 from asgiref.sync import async_to_sync
 from channels.testing import WebsocketCommunicator
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 
 import me_nd_you.asgi
 from game.consumers import room_group_name
+from game.models import CoupleSession
 
 PATH = "/ws/game/room/questions/"
+
+
+def couple_secrets():
+    """Every secret the WebSocket tests connect with. A real couple can't
+    have a secret over 100 characters, so longer ones are naming-only."""
+    fixed = ["room", "other-couple", "love_truth", "love"]
+    return fixed + [s for s in SPECIAL_SECRETS.values() if len(s) <= 100 and s not in fixed]
+
+
+class CoupleRoomsTestCase(TestCase):
+    """Rooms only open for an existing, unexpired couple session."""
+
+    @classmethod
+    def setUpTestData(cls):
+        for n, secret in enumerate(couple_secrets()):
+            CoupleSession.objects.create(
+                partner1_name=f"Partner{n}a", partner2_name=f"Partner{n}b", secret_word=secret
+            )
 
 
 async def connect(origin):
@@ -22,7 +43,7 @@ async def connect(origin):
 
 
 @override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
-class WebSocketOriginTests(SimpleTestCase):
+class WebSocketOriginTests(CoupleRoomsTestCase):
     def test_same_site_origin_can_connect(self):
         async def run():
             communicator, connected = await connect(b"https://me-nd-you.onrender.com")
@@ -41,7 +62,7 @@ class WebSocketOriginTests(SimpleTestCase):
 
 
 @override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
-class WebSocketMessageSizeTests(SimpleTestCase):
+class WebSocketMessageSizeTests(CoupleRoomsTestCase):
     def test_oversized_message_closes_the_connection(self):
         async def run():
             communicator, _ = await connect(b"https://me-nd-you.onrender.com")
@@ -76,7 +97,7 @@ async def close(*pages):
 
 
 @override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
-class MessageContractTests(SimpleTestCase):
+class MessageContractTests(CoupleRoomsTestCase):
     def relay(self, message):
         """Send from page A; return what page B receives."""
 
@@ -136,7 +157,7 @@ class MessageContractTests(SimpleTestCase):
 
 
 @override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
-class MalformedMessageTests(SimpleTestCase):
+class MalformedMessageTests(CoupleRoomsTestCase):
     MALFORMED = {
         "not JSON": "hello",
         "JSON array": "[1, 2]",
@@ -247,7 +268,7 @@ def encoded_path(secret, mode="questions"):
 
 
 @override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
-class RoomIsolationTests(SimpleTestCase):
+class RoomIsolationTests(CoupleRoomsTestCase):
     def exchange(self, sender_path, receiver_path):
         """Send a question on one path; return what the other path receives."""
 
@@ -268,6 +289,8 @@ class RoomIsolationTests(SimpleTestCase):
 
     def test_partners_with_special_secrets_can_play_together(self):
         for label, secret in SPECIAL_SECRETS.items():
+            if len(secret) > 100:
+                continue  # No real couple can have it; covered by naming tests.
             with self.subTest(secret=label):
                 path = encoded_path(secret)
                 self.assertEqual(self.exchange(path, path)["question"], "Private?")
@@ -280,3 +303,43 @@ class RoomIsolationTests(SimpleTestCase):
     def test_same_secret_in_another_mode_is_a_separate_room(self):
         self.assertIsNone(self.exchange(encoded_path("sunflower", "questions"),
                                         encoded_path("sunflower", "truth")))
+
+
+async def try_connect(path):
+    application = importlib.reload(me_nd_you.asgi).application
+    page = WebsocketCommunicator(application, path, headers=[(b"origin", ORIGIN)])
+    connected, code = await page.connect()
+    if connected:
+        await page.disconnect()
+    return connected, code
+
+
+@override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
+class SessionAccessTests(CoupleRoomsTestCase):
+    """Audit A6: only an existing, unexpired session may open a room."""
+
+    def connect(self, secret):
+        return async_to_sync(try_connect)(encoded_path(secret))
+
+    def test_unknown_secret_cannot_open_a_room(self):
+        self.assertFalse(self.connect("nobody-has-this-secret")[0])
+
+    def test_expired_session_cannot_open_a_room(self):
+        CoupleSession.objects.filter(secret_word="room").update(
+            last_active=timezone.now() - timedelta(days=31)
+        )
+        self.assertFalse(self.connect("room")[0])
+
+    def test_expired_and_unknown_are_rejected_identically(self):
+        CoupleSession.objects.filter(secret_word="room").update(
+            last_active=timezone.now() - timedelta(days=31)
+        )
+        self.assertEqual(self.connect("room"), self.connect("nobody-has-this-secret"))
+
+    def test_connecting_counts_as_activity(self):
+        CoupleSession.objects.filter(secret_word="room").update(
+            last_active=timezone.now() - timedelta(days=10)
+        )
+        self.assertTrue(self.connect("room")[0])
+        last_active = CoupleSession.objects.get(secret_word="room").last_active
+        self.assertLess(timezone.now() - last_active, timedelta(minutes=1))
