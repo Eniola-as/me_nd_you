@@ -2,7 +2,12 @@
 {% block title %}Your couple space{% endblock %}
 {% block content %}
   <h1>Your couple space</h1>
-  <p class="links">Signed in as {{ user.email }}</p>
+  <p class="links">
+    Signed in as {{ user.display_name|default:user.email }} · <a href="/accounts/profile/">Change your name</a>
+  </p>
+  {% if not user.display_name %}
+    <p class="messages"><a href="/accounts/profile/">Choose a name</a> so your partner sees it instead of "Your partner".</p>
+  {% endif %}
 
   {% if has_pending_invite and not membership %}
     <h2>You've been invited</h2>
@@ -24,7 +29,7 @@
     <p class="help-text">Got an invitation link from your partner? Open it while signed in.</p>
   {% else %}
     {% if partner %}
-      <p>You and <strong>{{ partner.email }}</strong> share this space.</p>
+      <p>You and <strong>{{ partner.name_for_partner }}</strong> share this space.</p>
     {% else %}
       <h2>Invite your partner</h2>
       {% if new_invite_url %}

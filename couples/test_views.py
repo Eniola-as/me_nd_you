@@ -29,7 +29,7 @@ class RegistrationTests(TestCase):
 
     def register(self, email="new@example.com", password=PASSWORD, confirm=None, client=None):
         return (client or self.client).post("/accounts/register/", {
-            "email": email, "password1": password, "password2": confirm or password,
+            "display_name": "New", "email": email, "password1": password, "password2": confirm or password,
         })
 
     def test_registering_creates_the_account_and_signs_in(self):

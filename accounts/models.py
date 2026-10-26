@@ -37,6 +37,8 @@ class User(AbstractUser):
 
     username = None
     email = models.EmailField("email address", unique=True)
+    # What a partner sees. The email is private to its owner (and admins).
+    display_name = models.CharField(max_length=40, blank=True, default="")
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -48,6 +50,11 @@ class User(AbstractUser):
             # unique=True alone is case-sensitive on PostgreSQL.
             models.UniqueConstraint(Lower("email"), name="accounts_user_email_ci_unique"),
         ]
+
+    @property
+    def name_for_partner(self):
+        """Never falls back to the email address."""
+        return self.display_name or "Your partner"
 
     def clean(self):
         super().clean()

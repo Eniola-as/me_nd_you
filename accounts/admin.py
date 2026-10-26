@@ -13,10 +13,10 @@ class UserAdmin(DjangoUserAdmin):
     form = UserEditForm
     add_form = UserCreationForm
     ordering = ["email"]
-    list_display = ["email", "first_name", "last_name", "is_staff", "is_active"]
-    search_fields = ["email", "first_name", "last_name"]
+    list_display = ["email", "display_name", "is_staff", "is_active"]
+    search_fields = ["email", "display_name", "first_name", "last_name"]
     fieldsets = (
-        (None, {"fields": ("email", "password")}),
+        (None, {"fields": ("email", "display_name", "password")}),
         (_("Personal info"), {"fields": ("first_name", "last_name")}),
         (
             _("Permissions"),

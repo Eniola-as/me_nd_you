@@ -21,20 +21,42 @@ class UserEditForm(UserChangeForm):
         fields = "__all__"
 
 
+class DisplayNameField(forms.CharField):
+    """1-40 characters after trimming; partners see this, not the email."""
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            max_length=40, required=True, strip=True,
+            widget=forms.TextInput(attrs={"autocomplete": "nickname", "maxlength": 40}),
+            help_text="What your partner will see. You can change it later.",
+            **kwargs,
+        )
+
+
 class RegistrationForm(BaseUserCreationForm):
     """Sign-up with email and password. Django's password validators run on
     password2 (length, common passwords, similarity to the email)."""
 
+    display_name = DisplayNameField(label="Your name")
+
     class Meta:
         model = User
-        fields = ("email",)
-        widgets = {"email": forms.EmailInput(attrs={"autocomplete": "email", "autofocus": True})}
+        fields = ("display_name", "email")
+        widgets = {"email": forms.EmailInput(attrs={"autocomplete": "email"})}
 
     def clean_email(self):
         email = User.objects.normalize_email(self.cleaned_data["email"])
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("An account with this email already exists. Sign in instead.")
         return email
+
+
+class ProfileForm(forms.ModelForm):
+    display_name = DisplayNameField(label="Your name")
+
+    class Meta:
+        model = User
+        fields = ("display_name",)
 
 
 class EmailAuthenticationForm(AuthenticationForm):

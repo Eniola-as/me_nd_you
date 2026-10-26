@@ -1,6 +1,8 @@
 from functools import wraps
 
+from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -9,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 
 from game.views import ClientRateThrottle
 
-from .forms import EmailAuthenticationForm, RegistrationForm
+from .forms import EmailAuthenticationForm, ProfileForm, RegistrationForm
 
 
 def rate_limited(scope):
@@ -52,6 +54,18 @@ def register(request):
         login(request, user)  # Starts a fresh session (new session key).
         return redirect(_next_url(request))
     return render(request, "accounts/register.html", {"form": form, "next": _next_url(request)})
+
+
+@login_required
+@rate_limited("account_profile")
+@require_http_methods(["GET", "POST"])
+def profile(request):
+    form = ProfileForm(request.POST or None, instance=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Your name is updated.")
+        return redirect("/space/")
+    return render(request, "accounts/profile.html", {"form": form})
 
 
 class EmailLoginView(LoginView):

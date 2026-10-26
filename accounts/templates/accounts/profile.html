@@ -1,0 +1,14 @@
+{% extends "accounts/base.html" %}
+{% block title %}Your name{% endblock %}
+{% block content %}
+  <h1>Your name</h1>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <label for="{{ form.display_name.id_for_label }}">Your name</label>
+    {{ form.display_name }}
+    <small class="help-text">What your partner sees. Your email stays private.</small>
+    {% for error in form.display_name.errors %}<p class="error-text" role="alert">{{ error }}</p>{% endfor %}
+    <button type="submit">Save</button>
+  </form>
+  <p class="links"><a href="/space/">Back to your couple space</a></p>
+{% endblock %}
