@@ -184,18 +184,6 @@ def add_custom_question(request):
     )
 
 
-@api_view(["GET"])
-def check_session(request):
-    secret = request.GET.get("secret")
-    if not secret:
-        return Response({"valid": False})
-
-    # Read-only: expired sessions are deleted by purge_inactive_sessions,
-    # never as a side effect of a GET request.
-    session = CoupleSession.objects.filter(secret_word=secret).first()
-    return Response({"valid": bool(session and not session.is_expired())})
-
-
 def login_page(request):
     return render(request, "game/login.html")
 

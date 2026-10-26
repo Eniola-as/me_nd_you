@@ -553,28 +553,6 @@
         });
       }
 
-      // Add session expiry check
-      async function checkSession() {
-        const session = localStorage.getItem(`session-${secret}-${mode}`);
-        if (!session) {
-          window.location.href = "/";
-          return;
-        }
-
-        try {
-          const res = await fetch(
-            `/api/check-session/?secret=${encodeURIComponent(secret)}`
-          );
-          const data = await res.json();
-          if (!data.valid) {
-            showFeedback("Your session expired. Taking you back to log in...");
-            setTimeout(() => (window.location.href = "/"), 2000);
-          }
-        } catch (err) {
-          console.error("Session check failed:", err);
-        }
-      }
-
       // Show guide on first visit
       function showGuide() {
         const hasSeenGuide = localStorage.getItem("hasSeenGuide");
@@ -592,10 +570,7 @@
       document.addEventListener("DOMContentLoaded", () => {
         socketClient.connect();
         loadQuestions();
-        // checkSession();  // Remove this
         showGuide();
-
-        // setInterval(checkSession, 300000);  // Remove this
       });
     </script>
   </body>

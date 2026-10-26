@@ -12,5 +12,4 @@ urlpatterns = [
         name="add_custom_question",
     ),
     path("api/login/", views.login_or_register, name="api_login"),
-    path("api/check-session/", views.check_session, name="check-session"),
 ]

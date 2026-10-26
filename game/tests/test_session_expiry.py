@@ -36,17 +36,19 @@ class ActivityTests(TestCase):
         self.assert_recently_active(session)
 
 
-class CheckSessionTests(TestCase):
-    def test_expired_session_is_reported_but_not_deleted(self):
-        make_session(days_inactive=31)
-        response = self.client.get("/api/check-session/", {"secret": "sunflower"})
-        self.assertEqual(response.json(), {"valid": False})
-        self.assertEqual(CoupleSession.objects.count(), 1)
+class CheckSessionRemovedTests(TestCase):
+    """check-session answered "does this secret exist?" without any rate
+    limit (audit A1) and nothing used it, so it was removed."""
 
-    def test_recent_session_is_valid(self):
+    def test_endpoint_no_longer_exists(self):
         make_session(days_inactive=1)
         response = self.client.get("/api/check-session/", {"secret": "sunflower"})
-        self.assertEqual(response.json(), {"valid": True})
+        self.assertEqual(response.status_code, 404)
+
+    def test_play_page_no_longer_calls_it(self):
+        html = self.client.get("/play/").content.decode()
+        self.assertNotIn("check-session", html)
+        self.assertNotIn("checkSession", html)
 
 
 class PurgeCommandTests(TestCase):
