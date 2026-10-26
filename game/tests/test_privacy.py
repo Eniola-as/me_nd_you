@@ -1,7 +1,7 @@
 import contextlib
 import io
 
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from game.models import CoupleSession, CustomQuestion
@@ -36,7 +36,7 @@ class AdminPrivacyTests(TestCase):
         self.question = CustomQuestion.objects.create(
             couple=self.couple, text="Ours?", mode="questions"
         )
-        admin = User.objects.create_superuser("admin", "a@example.com", "pw-for-tests")
+        admin = get_user_model().objects.create_superuser(email="a@example.com", password="pw-for-tests")
         self.client.force_login(admin)
 
     def test_custom_question_label_hides_the_secret(self):

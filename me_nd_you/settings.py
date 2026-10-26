@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "accounts",
     "game",
     "rest_framework",
     "channels",
@@ -68,6 +69,10 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "me_nd_you.settings.ServiceWorkerMiddleware",
 ]
+
+# Email-and-password accounts (accounts.User). Must stay set before any
+# production database is created; changing it later is very hard.
+AUTH_USER_MODEL = "accounts.User"
 
 ROOT_URLCONF = "me_nd_you.urls"
 

@@ -96,10 +96,31 @@ visit https://me-nd-you.onrender.com
    python manage.py runserver
    ```
 
+### Moving an existing database to email accounts
+
+The project now uses its own user model (`accounts.User`, email and
+password). Django cannot switch an existing database to a new user model in
+place: `migrate` stops with `InconsistentMigrationHistory` before changing
+anything. Carry the game data into a fresh database instead (XML keeps
+timestamps exact; JSON rounds them to milliseconds):
+
+```bash
+# 1. With the old database still in place, export the couples' data.
+python manage.py dumpdata game.CoupleSession game.CustomQuestion game.PlayedQuestion --format xml -o game_data.xml
+# 2. Keep the old database as a backup, e.g. rename db.sqlite3 to db.before-accounts.sqlite3.
+# 3. Create the fresh database and load the data back.
+python manage.py migrate
+python manage.py loaddata game_data.xml
+# 4. Recreate admin logins (old admin accounts are not carried over).
+python manage.py createsuperuser
+```
+
+`game_data.xml` contains secret words: keep it private and delete it when done.
+
 ## Running the Tests
 
 ```bash
-python manage.py test game
+python manage.py test accounts game
 node --test "tests/js/*.test.js"
 ```
 

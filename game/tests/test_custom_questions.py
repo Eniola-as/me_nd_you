@@ -1,4 +1,4 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase
 
@@ -112,14 +112,14 @@ class OwnershipTests(CustomQuestionTestCase):
 
 class CsrfTests(CustomQuestionTestCase):
     def test_browser_logged_into_admin_can_still_submit(self):
-        admin = User.objects.create_superuser("admin", "a@example.com", "pw-for-tests")
+        admin = get_user_model().objects.create_superuser(email="a@example.com", password="pw-for-tests")
         client = Client(enforce_csrf_checks=True)
         client.force_login(admin)
         self.assertEqual(self.submit(client=client).status_code, 201)
 
     def test_login_endpoint_still_requires_csrf_for_logged_in_browsers(self):
         # Out of scope for this fix: login keeps its current behaviour.
-        admin = User.objects.create_superuser("admin", "a@example.com", "pw-for-tests")
+        admin = get_user_model().objects.create_superuser(email="a@example.com", password="pw-for-tests")
         client = Client(enforce_csrf_checks=True)
         client.force_login(admin)
         response = client.post(
