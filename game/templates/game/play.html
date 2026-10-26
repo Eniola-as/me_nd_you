@@ -268,6 +268,7 @@
     </dialog>
 
     <script src="{% static 'js/socket-client.js' %}"></script>
+    <script src="{% static 'js/room-client.js' %}"></script>
     <script src="{% static 'js/game-messages.js' %}"></script>
     <script src="{% static 'js/card.js' %}"></script>
     <script>
@@ -352,7 +353,6 @@
           const host = window.location.host || "127.0.0.1:8000";
           const encodedRoom = encodeURIComponent(roomName || "");
           const encodedMode = encodeURIComponent(mode || "");
-          if (useSpace) return `${protocol}//${host}/ws/space/${encodedMode}/`;
           return `${protocol}//${host}/ws/game/${encodedRoom}/${encodedMode}/`;
         } catch (err) {
           console.error("Error constructing WebSocket URL:", err);
@@ -392,9 +392,7 @@
       async function loadQuestions({ showFirst = true, announce = false } = {}) {
         try {
           const res = await fetch(
-            useSpace
-              ? `/api/space/questions/${encodeURIComponent(mode)}/`
-              : `/api/questions/${encodeURIComponent(mode)}/?secret=${encodeURIComponent(secret)}`
+            `/api/questions/${encodeURIComponent(mode)}/?secret=${encodeURIComponent(secret)}`
           );
           questions = await res.json();
 
@@ -459,7 +457,7 @@
       // Add event listeners instead of inline onclick
       document
         .getElementById("nextBtn")
-        .addEventListener("click", () => nextQuestion());
+        .addEventListener("click", () => (useSpace ? room.act("next") : nextQuestion()));
       document.getElementById("switchBtn").addEventListener("click", () => {
         window.location.href = useSpace
           ? "/modes/"
@@ -468,7 +466,7 @@
       document.getElementById("addBtn").addEventListener("click", openModal);
       document
         .getElementById("resetBtn")
-        .addEventListener("click", resetSession);
+        .addEventListener("click", () => (useSpace ? room.act("reset") : resetSession()));
 
       function openModal() {
         document.getElementById("add-modal").showModal();
@@ -498,9 +496,12 @@
 
           if (res.ok) {
             const q = await res.json();
-            questions.push(q);
-            remaining.push(q);
-            updateRemaining();
+            // In a couple space the server adds it to the shared deck.
+            if (!useSpace) {
+              questions.push(q);
+              remaining.push(q);
+              updateRemaining();
+            }
             closeModal();
             showFeedback("✅ Question added.");
           } else {
@@ -549,6 +550,34 @@
         },
       });
 
+      // Couple spaces: the server holds the deck and the current card; this
+      // page sends Next and Reset requests and shows the state it receives.
+      let shownKey = null;
+      const room = useSpace
+        ? createRoomClient({
+            url: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/room/questions/${encodeURIComponent(mode)}/`,
+            onState: renderRoomState,
+            onError(error) {
+              if (error.reason === "forbidden") {
+                showFeedback("You no longer have access to this couple space.");
+              } else if (error.reason === "invalid" && error.detail) {
+                showFeedback(error.detail);
+              }
+            },
+          })
+        : null;
+
+      function renderRoomState({ state }) {
+        remainingCountSpan.textContent = state.remaining;
+        if (state.finished) {
+          shownKey = null;
+          card.showMessage(FINISHED_MESSAGE);
+        } else if (state.current && state.current.key !== shownKey) {
+          shownKey = state.current.key;
+          card.showQuestion(state.current.text);
+        }
+      }
+
       const modeMap = {
         questions: "Questions",
         truth: "Truth or Dare",
@@ -593,8 +622,12 @@
 
       // Add to initialization
       document.addEventListener("DOMContentLoaded", () => {
-        socketClient.connect();
-        loadQuestions();
+        if (useSpace) {
+          room.connect();
+        } else {
+          socketClient.connect();
+          loadQuestions();
+        }
         showGuide();
       });
     </script>

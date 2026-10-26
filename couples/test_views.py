@@ -177,13 +177,16 @@ class InvitationLinkTests(TestCase):
 
 
 class FrontendModeTests(TestCase):
-    def test_play_page_uses_the_space_api_for_members(self):
+    def test_play_page_uses_the_server_room_for_members(self):
         ann = make_user("ann@example.com")
         services.create_couple(ann)
         html = signed_in(ann).get("/play/?mode=questions").content.decode()
         self.assertIn("const inSpace = true;", html)
-        self.assertIn("/api/space/questions/", html)
-        self.assertIn("/ws/space/", html)
+        self.assertIn("js/room-client.js", html)
+        self.assertIn("/ws/room/questions/", html)
+        # Next and Reset are requests to the server, not local deck moves.
+        self.assertIn('room.act("next")', html)
+        self.assertIn('room.act("reset")', html)
 
     def test_pages_for_people_outside_a_space_keep_the_secret_word_flow(self):
         for url in ["/play/?mode=questions&secret=x", "/modes/?secret=x"]:
