@@ -1,16 +1,25 @@
 # Create your models here.
+import time
 import uuid
+from datetime import timedelta
+from django.core.cache import cache
 from django.db import models
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 
 # Each couple shares a secret word (like a room code)
 class CoupleSession(models.Model):
+    # Sessions with no activity for this long are treated as expired and
+    # removed by the purge_inactive_sessions management command.
+    INACTIVITY_LIMIT = timedelta(days=30)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     partner1_name = models.CharField(max_length=100)  # Changed from person1_name
     partner2_name = models.CharField(max_length=100)  # Changed from person2_name
-    secret_word = models.CharField(max_length=100)
+    secret_word = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_active = models.DateTimeField(auto_now=True)
     session_key = models.CharField(max_length=255, unique=True, blank=True)
@@ -19,14 +28,16 @@ class CoupleSession(models.Model):
         unique_together = ["partner1_name", "partner2_name", "secret_word"]
 
     def save(self, *args, **kwargs):
-        # Sort names alphabetically for consistency
-        names = sorted([self.partner1_name.lower(), self.partner2_name.lower()])
-        self.partner1_name = names[0].title()
-        self.partner2_name = names[1].title()
+        # Sort names alphabetically (ignoring case) for consistency, but keep
+        # them as typed: title() would turn "McDonald" into "Mcdonald".
+        names = sorted(
+            [self.partner1_name.strip(), self.partner2_name.strip()], key=str.casefold
+        )
+        self.partner1_name, self.partner2_name = names
 
         # Create unique session key
         if not self.session_key:
-            self.session_key = f"{self.id}_{names[0]}_{names[1]}"
+            self.session_key = f"{self.id}_{names[0].casefold()}_{names[1].casefold()}"
 
         super().save(*args, **kwargs)
 
@@ -36,13 +47,17 @@ class CoupleSession(models.Model):
         if len(self.secret_word) < 4:
             raise ValidationError("Secret word must be at least 4 characters")
 
+    def is_expired(self):
+        return timezone.now() - self.last_active > self.INACTIVITY_LIMIT
+
+    def touch(self):
+        """Record activity without re-running save() and its name handling."""
+        self.last_active = timezone.now()
+        CoupleSession.objects.filter(pk=self.pk).update(last_active=self.last_active)
+
     @classmethod
-    def find_session(cls, name1, name2, secret):
-        # Sort names to match stored order
-        names = sorted([name1, name2])
-        return cls.objects.filter(
-            partner1_name=names[0], partner2_name=names[1], secret_word=secret
-        ).first()
+    def inactive(cls):
+        return cls.objects.filter(last_active__lt=timezone.now() - cls.INACTIVITY_LIMIT)
 
     def __str__(self):
         return f"{self.partner1_name} & {self.partner2_name}"
@@ -73,7 +88,7 @@ class CustomQuestion(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Custom by {self.couple.secret_word}: {self.text[:50]}"
+        return f"Custom by {self.couple}: {self.text[:50]}"
 
 
 class PlayedQuestion(models.Model):
@@ -81,3 +96,21 @@ class PlayedQuestion(models.Model):
     text = models.TextField()
     mode = models.CharField(max_length=20)
     timestamp = models.DateTimeField(auto_now_add=True)
+
+
+# Cached question lists include this version in their key; any change to a
+# question bumps it, so stale lists are never served.
+QUESTIONS_CACHE_VERSION_KEY = "questions_version"
+
+
+def questions_cache_version():
+    return cache.get_or_set(QUESTIONS_CACHE_VERSION_KEY, time.time_ns, timeout=None)
+
+
+@receiver([post_save, post_delete], sender=Question)
+@receiver([post_save, post_delete], sender=CustomQuestion)
+def bump_questions_cache_version(**kwargs):
+    try:
+        cache.incr(QUESTIONS_CACHE_VERSION_KEY)
+    except ValueError:  # Key evicted: any fresh value avoids old entries.
+        cache.set(QUESTIONS_CACHE_VERSION_KEY, time.time_ns(), timeout=None)
