@@ -276,6 +276,20 @@
       const secret = params.get("secret");
       const urlSeed = params.get("seed");
       const roomName = secret;
+      // Signed-in members of a couple play in their private space: the
+      // server finds the couple from the session, so no secret is used.
+      const inSpace = {{ in_space|yesno:"true,false" }};
+      const useSpace = inSpace && !secret;
+      if (!useSpace && !secret) window.location.href = "/";
+
+      function storageKey() {
+        return useSpace ? `space-${mode}` : `session-${secret}-${mode}`;
+      }
+
+      function csrfToken() {
+        const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : "";
+      }
 
       const container = document.getElementById("flip-container");
       const cardFront = document.getElementById("card-front");
@@ -338,6 +352,7 @@
           const host = window.location.host || "127.0.0.1:8000";
           const encodedRoom = encodeURIComponent(roomName || "");
           const encodedMode = encodeURIComponent(mode || "");
+          if (useSpace) return `${protocol}//${host}/ws/space/${encodedMode}/`;
           return `${protocol}//${host}/ws/game/${encodedRoom}/${encodedMode}/`;
         } catch (err) {
           console.error("Error constructing WebSocket URL:", err);
@@ -347,7 +362,7 @@
 
       function loadSession() {
         try {
-          const key = `session-${secret}-${mode}`;
+          const key = storageKey();
           const saved = localStorage.getItem(key);
           if (saved) {
             const data = JSON.parse(saved);
@@ -367,7 +382,7 @@
       }
 
       function saveSession() {
-        const key = `session-${secret}-${mode}`;
+        const key = storageKey();
         localStorage.setItem(key, JSON.stringify({ seen: seenTexts, seed }));
       }
 
@@ -377,7 +392,9 @@
       async function loadQuestions({ showFirst = true, announce = false } = {}) {
         try {
           const res = await fetch(
-            `/api/questions/${encodeURIComponent(mode)}/?secret=${encodeURIComponent(secret)}`
+            useSpace
+              ? `/api/space/questions/${encodeURIComponent(mode)}/`
+              : `/api/questions/${encodeURIComponent(mode)}/?secret=${encodeURIComponent(secret)}`
           );
           questions = await res.json();
 
@@ -444,7 +461,9 @@
         .getElementById("nextBtn")
         .addEventListener("click", () => nextQuestion());
       document.getElementById("switchBtn").addEventListener("click", () => {
-        window.location.href = `/modes/?secret=${encodeURIComponent(secret)}`;
+        window.location.href = useSpace
+          ? "/modes/"
+          : `/modes/?secret=${encodeURIComponent(secret)}`;
       });
       document.getElementById("addBtn").addEventListener("click", openModal);
       document
@@ -465,11 +484,17 @@
         if (!text) return;
 
         try {
-          const res = await fetch("/api/add-custom-question/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ secret, text, mode }),
-          });
+          const res = useSpace
+            ? await fetch("/api/space/custom-questions/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+                body: JSON.stringify({ text, mode }),
+              })
+            : await fetch("/api/add-custom-question/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ secret, text, mode }),
+              });
 
           if (res.ok) {
             const q = await res.json();

@@ -1,0 +1,53 @@
+{% extends "accounts/base.html" %}
+{% block title %}Your couple space{% endblock %}
+{% block content %}
+  <h1>Your couple space</h1>
+  <p class="links">Signed in as {{ user.email }}</p>
+
+  {% if has_pending_invite and not membership %}
+    <h2>You've been invited</h2>
+    <p>Join your partner's private space?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" name="action" value="accept_invite">Accept invitation</button>
+      <button type="submit" name="action" value="dismiss_invite" class="secondary">Not now</button>
+    </form>
+  {% endif %}
+
+  {% if not membership %}
+    <h2>Start your space</h2>
+    <p>Create a private space, then invite your partner with a one-time link.</p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" name="action" value="create_couple">Start a couple space</button>
+    </form>
+    <p class="help-text">Got an invitation link from your partner? Open it while signed in.</p>
+  {% else %}
+    {% if partner %}
+      <p>You and <strong>{{ partner.email }}</strong> share this space.</p>
+    {% else %}
+      <h2>Invite your partner</h2>
+      {% if new_invite_url %}
+        <p>Send this link to your partner. It works once and expires in 7 days. It won't be shown again.</p>
+        <p class="invite-url">{{ new_invite_url }}</p>
+      {% elif pending_invitation %}
+        <p>An invitation link is waiting to be used (expires {{ pending_invitation.expires_at|date:"j M, H:i" }}).</p>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="action" value="create_invite">
+          {% if pending_invitation %}Create a new link{% else %}Create an invitation link{% endif %}
+        </button>
+        {% if pending_invitation %}
+          <button type="submit" name="action" value="revoke_invites" class="secondary">Cancel the link</button>
+        {% endif %}
+      </form>
+    {% endif %}
+    <a class="button" href="/modes/">Play together</a>
+  {% endif %}
+
+  <form method="post" action="/accounts/logout/">
+    {% csrf_token %}
+    <button type="submit" class="secondary">Sign out</button>
+  </form>
+{% endblock %}

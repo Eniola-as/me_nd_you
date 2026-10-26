@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% load static %}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Me & You - {% block title %}{% endblock %}</title>
+    <link rel="manifest" href="{% static 'manifest.json' %}" crossorigin="use-credentials" />
+    <link rel="icon" type="image/png" href="{% static 'icons/icon-192.png' %}" />
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}" />
+    <meta name="theme-color" content="#e75480" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Shared by the account and couple pages; same look as the login page. */
+      :root {
+        --accent: #ff4c61;
+        --accent-hover: #ff6e7c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px 12px;
+        font-family: "Outfit", sans-serif;
+        background: #0d0d0d;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 36px 28px;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      h1 {
+        font-size: 26px;
+        font-weight: 600;
+        text-align: center;
+        margin: 0 0 20px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 24px 0 8px;
+        color: var(--accent);
+      }
+      p {
+        color: #ddd;
+        line-height: 1.5;
+      }
+      label {
+        display: block;
+        font-size: 14px;
+        color: #ddd;
+        margin-top: 12px;
+      }
+      input {
+        width: 100%;
+        padding: 14px;
+        margin: 6px 0 0;
+        border: none;
+        border-radius: 12px;
+        background: #1e1e1e;
+        color: #fff;
+        font: inherit;
+        font-size: 15px;
+      }
+      button,
+      .button {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        margin-top: 18px;
+        background: var(--accent);
+        border: 1px solid var(--accent);
+        color: #fff;
+        font: inherit;
+        font-size: 16px;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+      button:hover,
+      .button:hover {
+        background: var(--accent-hover);
+      }
+      .secondary {
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff;
+      }
+      .errors,
+      .error-text {
+        color: var(--accent);
+        font-size: 13px;
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .help-text {
+        color: #aaa;
+        font-size: 12px;
+        margin-top: 4px;
+        display: block;
+      }
+      .messages {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 12px;
+      }
+      .messages li {
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: #222;
+        margin-bottom: 8px;
+      }
+      .messages .error {
+        border: 1px solid var(--accent);
+      }
+      .links {
+        text-align: center;
+        margin-top: 18px;
+        color: #aaa;
+      }
+      .links a {
+        color: var(--accent);
+      }
+      .invite-url {
+        word-break: break-all;
+        background: #1e1e1e;
+        padding: 12px;
+        border-radius: 10px;
+        user-select: all;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      {% if messages %}
+        <ul class="messages" role="status">
+          {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

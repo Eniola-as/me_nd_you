@@ -1,0 +1,21 @@
+{% extends "accounts/base.html" %}
+{% block title %}Create an account{% endblock %}
+{% block content %}
+  <h1>Create an account</h1>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <label for="{{ form.email.id_for_label }}">Email</label>
+    {{ form.email }}
+    {% for error in form.email.errors %}<p class="error-text" role="alert">{{ error }}</p>{% endfor %}
+    <label for="{{ form.password1.id_for_label }}">Password</label>
+    {{ form.password1 }}
+    <small class="help-text">At least 8 characters; not a common password or your email.</small>
+    {% for error in form.password1.errors %}<p class="error-text" role="alert">{{ error }}</p>{% endfor %}
+    <label for="{{ form.password2.id_for_label }}">Confirm password</label>
+    {{ form.password2 }}
+    {% for error in form.password2.errors %}<p class="error-text" role="alert">{{ error }}</p>{% endfor %}
+    <input type="hidden" name="next" value="{{ next }}" />
+    <button type="submit">Create account</button>
+  </form>
+  <p class="links">Already have an account? <a href="/accounts/login/">Sign in</a></p>
+{% endblock %}

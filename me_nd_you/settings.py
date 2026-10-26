@@ -78,6 +78,9 @@ MIDDLEWARE = [
 # Email-and-password accounts (accounts.User). Must stay set before any
 # production database is created; changing it later is very hard.
 AUTH_USER_MODEL = "accounts.User"
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/space/"
+LOGOUT_REDIRECT_URL = "/"
 
 ROOT_URLCONF = "me_nd_you.urls"
 
@@ -189,6 +192,9 @@ REST_FRAMEWORK = {
         "custom_questions": "10/min",
         "space_questions": "30/min",
         "space_custom_questions": "10/min",
+        "account_login": "10/min",
+        "account_register": "10/min",
+        "space_action": "30/min",
     },
     # How many proxies in front of the app append to X-Forwarded-For. Rate
     # limits identify clients by the address the last trusted proxy added;
