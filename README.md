@@ -91,10 +91,13 @@ visit https://me-nd-you.onrender.com
    python manage.py migrate
    ```
 
-6. Start the development server:
+6. Start the development server (Daphne's ASGI server, so WebSockets work
+   locally too):
    ```bash
    python manage.py runserver
    ```
+
+Deployment to Render is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### Moving an existing database to email accounts
 

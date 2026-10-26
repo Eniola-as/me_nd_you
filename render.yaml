@@ -2,8 +2,17 @@ services:
   - type: web
     name: me_nd_you
     runtime: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
-    startCommand: gunicorn me_nd_you.wsgi:application
+    # Verify in Render: WebSockets need an always-on instance (free instances
+    # spin down when idle, dropping every socket), and preDeployCommand is
+    # only available on some instance types.
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    # Migrations run once per deploy, after the build and before the new
+    # version starts serving. Back up the database first (docs/DEPLOYMENT.md).
+    preDeployCommand: python manage.py migrate --noinput
+    # One Daphne process serves HTTP and WebSockets. Rooms use the in-memory
+    # channel layer, so all sockets must be in this one process: don't add
+    # processes or instances until Redis is set up (docs/DEPLOYMENT.md).
+    startCommand: daphne -b 0.0.0.0 -p $PORT me_nd_you.asgi:application
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.7
@@ -16,5 +25,15 @@ services:
         value: "False"
       - key: ALLOWED_HOSTS
         value: me-nd-you.onrender.com
-      # No database variables yet: settings.py uses SQLite and never read the
-      # old DB_* values. Add DATABASE_URL here when a managed database is chosen.
+      # The PostgreSQL connection string, set in the dashboard. This file
+      # deliberately has no `databases:` block, so syncing it can never
+      # create (and bill for) a database on its own.
+      - key: DATABASE_URL
+        sync: false
+      # Number of proxies in front of the app; verify with Render before
+      # setting (deploy check game.W001 warns while unset).
+      - key: TRUSTED_PROXY_COUNT
+        sync: false
+      # A hard-to-guess admin path, e.g. "backstage-x7k2/".
+      - key: ADMIN_URL
+        sync: false

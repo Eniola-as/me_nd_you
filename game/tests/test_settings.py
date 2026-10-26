@@ -14,6 +14,8 @@ PRODUCTION_ENV = {
     "SECRET_KEY": "test-only-fake-key-not-a-secret-for-deploy-check-0123456789",
     # Test value only; the real count must be verified for Render.
     "TRUSTED_PROXY_COUNT": "1",
+    # Placeholder URL: only parsed, never connected to by `check --deploy`.
+    "DATABASE_URL": "postgres://app:not-a-real-password@db.internal:5432/me_nd_you",
 }
 
 
@@ -40,6 +42,30 @@ class DeploymentFilesTests(SimpleTestCase):
         self.assertRegex(render_yaml, r"key: SECRET_KEY\s+sync: false")
         # The DB_* variables were never read by settings.py.
         self.assertNotRegex(render_yaml, r"key: DB_")
+
+    def test_render_starts_daphne_with_the_asgi_application(self):
+        render_yaml = (self.root / "render.yaml").read_text()
+        self.assertIn("startCommand: daphne -b 0.0.0.0 -p $PORT me_nd_you.asgi:application", render_yaml)
+        self.assertNotIn("gunicorn", render_yaml)
+
+    def test_render_migrates_before_deploy_not_during_build(self):
+        render_yaml = (self.root / "render.yaml").read_text()
+        build = next(l for l in render_yaml.splitlines() if "buildCommand:" in l)
+        self.assertNotIn("migrate", build)
+        self.assertIn("preDeployCommand: python manage.py migrate --noinput", render_yaml)
+
+    def test_render_takes_database_url_from_the_dashboard_and_provisions_nothing(self):
+        render_yaml = (self.root / "render.yaml").read_text()
+        self.assertRegex(render_yaml, r"key: DATABASE_URL\s+sync: false")
+        self.assertNotRegex(render_yaml, r"(?m)^databases:")  # Would create a database.
+
+    def test_requirements_include_the_postgresql_driver(self):
+        names = {
+            line.split("==")[0].split("[")[0].strip().lower()
+            for line in (self.root / "requirements.txt").read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        }
+        self.assertLessEqual({"psycopg", "dj-database-url", "daphne"}, names)
 
     def test_render_blueprint_pins_python_the_supported_way(self):
         render_yaml = (self.root / "render.yaml").read_text()
@@ -78,6 +104,48 @@ class AdminUrlTests(SimpleTestCase):
 
     def test_admin_path_can_be_moved_by_environment(self):
         self.assertEqual(self.admin_index({"ADMIN_URL": "backstage-7f3k/"}), "/backstage-7f3k/")
+
+
+class DatabaseSettingsTests(SimpleTestCase):
+    def test_sqlite_is_the_default_without_database_url(self):
+        values = load_settings({}, ["DATABASES"])
+        self.assertEqual(values["DATABASES"]["default"]["ENGINE"], "django.db.backends.sqlite3")
+
+    def test_database_url_selects_postgresql(self):
+        values = load_settings(
+            {"DATABASE_URL": "postgres://app:not-a-real-password@db.internal:5432/me_nd_you"},
+            ["DATABASES"],
+        )
+        db = values["DATABASES"]["default"]
+        self.assertEqual(db["ENGINE"], "django.db.backends.postgresql")
+        self.assertEqual((db["HOST"], db["PORT"], db["NAME"], db["USER"]),
+                         ("db.internal", 5432, "me_nd_you", "app"))
+
+    def test_connections_are_not_kept_open_between_requests(self):
+        # Conservative for one Daphne process: Channels runs database work in
+        # a thread pool, where long-lived connections are not reused safely.
+        values = load_settings({"DATABASE_URL": "postgres://app:x@db.internal:5432/me_nd_you"}, ["DATABASES"])
+        db = values["DATABASES"]["default"]
+        self.assertEqual(db["CONN_MAX_AGE"], 0)
+        self.assertTrue(db["CONN_HEALTH_CHECKS"])
+
+    def test_deploy_check_warns_when_production_uses_sqlite(self):
+        env = {k: v for k, v in os.environ.items() if k not in SETTINGS_ENV_KEYS}
+        env.update({k: v for k, v in PRODUCTION_ENV.items() if k != "DATABASE_URL"})
+        result = subprocess.run(
+            [sys.executable, "manage.py", "check", "--deploy"],
+            cwd=settings.BASE_DIR, env=env, capture_output=True, text=True,
+        )
+        self.assertIn("game.W002", result.stderr + result.stdout)
+
+
+class AsgiDevelopmentServerTests(SimpleTestCase):
+    def test_runserver_is_daphnes_asgi_server(self):
+        # So local development serves WebSockets like production does.
+        from django.core.management import get_commands
+
+        self.assertEqual(settings.INSTALLED_APPS[0], "daphne")
+        self.assertEqual(get_commands()["runserver"], "daphne")
 
 
 class TrustedProxySettingsTests(SimpleTestCase):

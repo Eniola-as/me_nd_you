@@ -6,6 +6,7 @@ Django settings for me_nd_you project.
 import mimetypes
 import sys
 from pathlib import Path
+import dj_database_url
 from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,6 +47,9 @@ SILENCED_SYSTEM_CHECKS = ["security.W021"]
 
 # Application definition
 INSTALLED_APPS = [
+    # First, so `runserver` is Daphne's ASGI server and serves WebSockets
+    # locally, as production does.
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -96,13 +100,30 @@ TEMPLATES = [
 
 ASGI_APPLICATION = "me_nd_you.asgi.application"
 
-# Database: SQLite for local development
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Database: PostgreSQL when DATABASE_URL is set (production), otherwise a
+# local SQLite file for development. A deploy check warns if production
+# would fall back to SQLite.
+DATABASE_URL = config("DATABASE_URL", default="")
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            # A new connection per request. Channels runs database work in a
+            # thread pool, where long-lived connections are not reused
+            # safely; with one Daphne process and modest traffic, the cost
+            # of reconnecting is small. Revisit (e.g. a connection pool)
+            # when traffic grows.
+            conn_max_age=0,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

@@ -17,3 +17,18 @@ def check_trusted_proxy_count(app_configs, **kwargs):
             )
         ]
     return []
+
+
+@register(Tags.database, deploy=True)
+def check_production_database(app_configs, **kwargs):
+    """Production must not run on the local SQLite file (on Render its disk
+    is wiped on every deploy)."""
+    if settings.DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
+        return [
+            Warning(
+                "The database is SQLite because DATABASE_URL is not set.",
+                hint="Set DATABASE_URL to the production PostgreSQL database.",
+                id="game.W002",
+            )
+        ]
+    return []
