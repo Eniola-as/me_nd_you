@@ -7,7 +7,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 from urllib.parse import urlencode
 
-from rest_framework.decorators import api_view, throttle_classes
+from rest_framework.decorators import api_view, authentication_classes, throttle_classes
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
@@ -159,16 +159,29 @@ def get_questions(request, mode):
 
 
 @api_view(["POST"])
+# Requests are authorised by the submitted secret, not a Django login, so
+# session authentication (and its CSRF check for logged-in users) is skipped.
+@authentication_classes([])
 def add_custom_question(request):
     serializer = CustomQuestionSerializer(data=request.data)
+    if not serializer.is_valid():
+        # Log field names only: error messages can echo submitted values.
+        logger.warning("Invalid custom question; fields: %s", sorted(serializer.errors))
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    data = serializer.validated_data
+    session = CoupleSession.objects.filter(secret_word=data["secret"]).first()
+    if session is None:
+        return Response({"detail": "Session not found."}, status=status.HTTP_404_NOT_FOUND)
+    session.touch()
 
-    # Log field names only: error messages can echo submitted values.
-    logger.warning("Invalid custom question; fields: %s", sorted(serializer.errors))
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # Saving bumps the questions cache version (see models.py), so the new
+    # question shows up on the couple's next question load.
+    question = CustomQuestion.objects.create(couple=session, text=data["text"], mode=data["mode"])
+    return Response(
+        {"text": question.text, "mode": question.mode, "is_custom": True},
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @api_view(["GET"])

@@ -2,7 +2,7 @@ import re
 import unicodedata
 
 from rest_framework import serializers
-from .models import CustomQuestion, CoupleSession
+from .models import Question
 
 # Letters in any script, with single spaces, apostrophes, hyphens or periods
 # between them (José, Anne-Marie, O'Neil, St. John).
@@ -36,12 +36,11 @@ class LoginSerializer(serializers.Serializer):
         return data
 
 
-class CustomQuestionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomQuestion
-        fields = "__all__"
+class CustomQuestionSerializer(serializers.Serializer):
+    """Input for adding a couple's own question. The couple is identified by
+    the secret only; any other field (such as a couple id) is ignored."""
 
-        couple = serializers.PrimaryKeyRelatedField(
-            queryset=CoupleSession.objects.all()
-        )
+    secret = serializers.CharField(max_length=100, trim_whitespace=False)
+    text = serializers.CharField(max_length=500)  # Trimmed; blank is rejected.
+    mode = serializers.ChoiceField(choices=Question.MODES)
 

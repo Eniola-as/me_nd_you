@@ -464,7 +464,7 @@
           const res = await fetch("/api/add-custom-question/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ couple: secret, text, mode }),
+            body: JSON.stringify({ secret, text, mode }),
           });
 
           if (res.ok) {
