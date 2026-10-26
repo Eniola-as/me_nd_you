@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Django](https://img.shields.io/badge/Django-5.2-green)
-![License](https://img.shields.io/badge/License-Unlicensed-lightgrey)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 ## Project Overview
 
@@ -18,10 +18,9 @@ visit https://me-nd-you.onrender.com
 - Multiple game modes including Questions, Truth or Dare, Challenges, Spicy Only, Mixed Mode, and Would You Rather
 - Randomized prompt delivery with a flip-card style experience
 - Custom question creation for each couple
-- Mobile-friendly and PWA-ready interface
-- Session persistence for a smoother user experience
+- Mobile-friendly, installable PWA that offers to resume your last session
 - REST API support for questions and session management
-- Real-time communication support via WebSockets
+- Experimental WebSocket syncing between partners (see Known Limitations)
 
 ## Screenshots
 
@@ -61,9 +60,15 @@ visit https://me-nd-you.onrender.com
    ```
 
 2. Create and activate a virtual environment:
-   ```bash
+   ```powershell
+   # PowerShell (Windows)
    python -m venv .venv
-   .\.venv\Scripts\activate
+   .\.venv\Scripts\Activate.ps1
+   ```
+   ```bash
+   # Bash (macOS/Linux; in Git Bash on Windows, use .venv/Scripts/activate)
+   python -m venv .venv
+   source .venv/bin/activate
    ```
 
 3. Install dependencies:
@@ -71,15 +76,44 @@ visit https://me-nd-you.onrender.com
    pip install -r requirements.txt
    ```
 
-4. Apply database migrations:
+4. Create your local settings file from the template. The app will not start
+   without it, because `SECRET_KEY` has no default:
+   ```powershell
+   Copy-Item .env.example .env   # PowerShell
+   ```
+   ```bash
+   cp .env.example .env          # Bash
+   ```
+   Then replace `SECRET_KEY` in `.env` with a long random string.
+
+5. Apply database migrations (this also loads the question bank):
    ```bash
    python manage.py migrate
    ```
 
-5. Start the development server:
+6. Start the development server:
    ```bash
    python manage.py runserver
    ```
+
+## Running the Tests
+
+```bash
+python manage.py test game
+node --test "tests/js/*.test.js"
+```
+
+The JavaScript tests need Node.js 20 or newer and have no dependencies to install.
+
+## Maintenance
+
+Couple sessions with no activity for 30 days count as expired. Delete them
+(with their custom questions) by running this regularly, for example as a
+scheduled job:
+
+```bash
+python manage.py purge_inactive_sessions
+```
 
 ## Running the Development Server
 
@@ -96,9 +130,13 @@ You can then create a session, choose a game mode, and start playing.
 ```text
 me_nd_you/
 ├── game/
+│   ├── fixtures/
+│   │   └── questions.json
 │   ├── templates/
 │   │   └── game/
+│   ├── management/
 │   ├── migrations/
+│   ├── tests/
 │   ├── models.py
 │   ├── views.py
 │   ├── serializers.py
@@ -112,9 +150,11 @@ me_nd_you/
 │   ├── icons/
 │   ├── js/
 │   └── service-worker.js
+├── tests/
+│   └── js/
 ├── manage.py
 ├── requirements.txt
-└── questions.json
+└── .env.example
 ```
 
 ## How the Game Works
@@ -141,9 +181,15 @@ me_nd_you/
 
 The live version of this application is hosted on **Render's free hosting tier**. Because of the limitations of the free plan, some features that depend on persistent connections or online session sharing (such as multiplayer gameplay) may not function as intended in the deployed version.
 
-The application has been fully developed and tested locally, where all gameplay and real-time features work as expected. These limitations are caused by the hosting environment rather than the application's implementation.
+Real-time syncing between partners is still experimental: the deployed app runs under WSGI, which cannot serve WebSockets, and progress is stored per browser rather than shared between devices.
 
-For the best experience, clone the repository and run the project locally using the setup instructions below.
+To try the WebSocket features, clone the repository and run the project locally using the setup instructions above.
+
+**PostgreSQL is not supported yet.** Migration `0003` changes `CoupleSession.id`
+from an integer to a UUID. SQLite accepts that, but PostgreSQL refuses it
+(`cannot cast type bigint to uuid`), so a fresh PostgreSQL database cannot be
+migrated. This must be resolved (for example by squashing the migrations)
+before PostgreSQL is chosen for production.
 
 
 ## Contributing
