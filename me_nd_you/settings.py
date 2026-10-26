@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "accounts",
     "couples",
     "game",
+    "play",
     "rest_framework",
     "channels",
 ]

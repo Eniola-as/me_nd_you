@@ -18,6 +18,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
 
 from couples.services import active_couple
+from play.services import add_custom_card
 from rest_framework.response import Response
 from rest_framework import status
 from .models import CoupleSession, Question, CustomQuestion, questions_cache_version
@@ -229,6 +230,8 @@ def add_space_custom_question(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     data = serializer.validated_data
     question = CustomQuestion.objects.create(space=couple, text=data["text"], mode=data["mode"])
+    # Server-authoritative rooms get it too, so both partners see it once.
+    add_custom_card(question)
     return Response(
         {"text": question.text, "mode": question.mode, "is_custom": True},
         status=status.HTTP_201_CREATED,
