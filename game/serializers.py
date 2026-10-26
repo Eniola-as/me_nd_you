@@ -36,11 +36,16 @@ class LoginSerializer(serializers.Serializer):
         return data
 
 
-class CustomQuestionSerializer(serializers.Serializer):
-    """Input for adding a couple's own question. The couple is identified by
-    the secret only; any other field (such as a couple id) is ignored."""
+class QuestionInputSerializer(serializers.Serializer):
+    """A couple's own question. Any other field (such as a couple id) is
+    ignored: who it belongs to is never taken from the request body."""
 
-    secret = serializers.CharField(max_length=100, trim_whitespace=False)
     text = serializers.CharField(max_length=500)  # Trimmed; blank is rejected.
     mode = serializers.ChoiceField(choices=Question.MODES)
+
+
+class CustomQuestionSerializer(QuestionInputSerializer):
+    """Legacy endpoint: the couple is identified by its secret word."""
+
+    secret = serializers.CharField(max_length=100, trim_whitespace=False)
 

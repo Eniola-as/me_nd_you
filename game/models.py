@@ -92,10 +92,26 @@ class Question(models.Model):
 
 # Couple-created questions
 class CustomQuestion(models.Model):
-    couple = models.ForeignKey(CoupleSession, on_delete=models.CASCADE)
+    # Exactly one owner: a legacy secret-word couple, or a couple space.
+    couple = models.ForeignKey(CoupleSession, on_delete=models.CASCADE, null=True, blank=True)
+    space = models.ForeignKey(
+        "couples.Couple", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="custom_questions",
+    )
     text = models.TextField()
     mode = models.CharField(max_length=20, choices=Question.MODES)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(couple__isnull=False, space__isnull=True)
+                    | models.Q(couple__isnull=True, space__isnull=False)
+                ),
+                name="game_customquestion_exactly_one_owner",
+            ),
+        ]
 
     def __str__(self):
         return f"Custom by {self.couple}: {self.text[:50]}"

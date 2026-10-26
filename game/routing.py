@@ -8,4 +8,5 @@ websocket_urlpatterns = [
         r"ws/game/(?P<room_name>[^/]+)/(?P<mode>[^/]+)/$",
         consumers.GameConsumer.as_asgi(),
     ),
+    re_path(r"ws/space/(?P<mode>[^/]+)/$", consumers.SpaceGameConsumer.as_asgi()),
 ]

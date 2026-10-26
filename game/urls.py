@@ -12,4 +12,10 @@ urlpatterns = [
         name="add_custom_question",
     ),
     path("api/login/", views.login_or_register, name="api_login"),
+    path("api/space/questions/<str:mode>/", views.get_space_questions, name="space_questions"),
+    path(
+        "api/space/custom-questions/",
+        views.add_space_custom_question,
+        name="space_custom_questions",
+    ),
 ]

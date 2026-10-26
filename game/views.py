@@ -7,12 +7,21 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 from urllib.parse import urlencode
 
-from rest_framework.decorators import api_view, authentication_classes, throttle_classes
-from rest_framework.throttling import SimpleRateThrottle
+from django.views.decorators.csrf import ensure_csrf_cookie
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+    throttle_classes,
+)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
+
+from couples.services import active_couple
 from rest_framework.response import Response
 from rest_framework import status
 from .models import CoupleSession, Question, CustomQuestion, questions_cache_version
-from .serializers import CustomQuestionSerializer, LoginSerializer
+from .serializers import CustomQuestionSerializer, LoginSerializer, QuestionInputSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +48,16 @@ class QuestionsRateThrottle(ClientRateThrottle):
 
 class CustomQuestionRateThrottle(ClientRateThrottle):
     scope = "custom_questions"
+
+
+class SpaceQuestionsRateThrottle(UserRateThrottle):
+    """Per signed-in user (per address for anonymous requests)."""
+
+    scope = "space_questions"
+
+
+class SpaceCustomQuestionRateThrottle(UserRateThrottle):
+    scope = "space_custom_questions"
 
 
 @csrf_exempt
@@ -137,20 +156,24 @@ def get_questions(request, mode):
     if session is None:
         return Response([], status=200)  # Unknown or expired: same answer.
     session.touch()
-
     # Keyed by session id so the secret never ends up in the cache.
-    cache_key = f"questions:{questions_cache_version()}:{mode}:{session.pk}"
+    return Response(
+        question_list(mode, CustomQuestion.objects.filter(couple=session), f"session:{session.pk}")
+    )
+
+
+def question_list(mode, custom_qs, owner_key):
+    """The admin questions for a mode plus an owner's custom questions,
+    cached per owner. Saving any question bumps the cache version."""
+    cache_key = f"questions:{questions_cache_version()}:{mode}:{owner_key}"
     cached_questions = cache.get(cache_key)
     if cached_questions is not None:
-        return Response(cached_questions)
+        return cached_questions
 
-    if mode == "mixed":
-        admin_qs = Question.objects.all()
-        # Custom questions for the specific couple session
-        custom_qs = CustomQuestion.objects.filter(couple=session)
-    else:
-        admin_qs = Question.objects.filter(mode=mode)
-        custom_qs = CustomQuestion.objects.filter(couple=session, mode=mode)
+    admin_qs = Question.objects.all()
+    if mode != "mixed":
+        admin_qs = admin_qs.filter(mode=mode)
+        custom_qs = custom_qs.filter(mode=mode)
 
     # Stable order: the client shuffles with a seed shared by both partners.
     all_questions = list(admin_qs.order_by("pk")) + list(custom_qs.order_by("created_at"))
@@ -169,7 +192,47 @@ def get_questions(request, mode):
 
     # Cache the results for 1 hour
     cache.set(cache_key, combined_data, timeout=3600)
-    return Response(combined_data)
+    return combined_data
+
+
+NOT_IN_COUPLE = {"detail": "Join a couple first."}
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@throttle_classes([SpaceQuestionsRateThrottle])
+def get_space_questions(request, mode):
+    """Questions for the signed-in user's own couple space. The couple comes
+    from the session's user, never from the request."""
+    if mode not in VALID_MODES:
+        return Response({"detail": "Unknown game mode."}, status=400)
+    couple = active_couple(request.user)
+    if couple is None:
+        return Response(NOT_IN_COUPLE, status=status.HTTP_403_FORBIDDEN)
+    return Response(
+        question_list(mode, CustomQuestion.objects.filter(space=couple), f"space:{couple.pk}")
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@throttle_classes([SpaceCustomQuestionRateThrottle])
+def add_space_custom_question(request):
+    """Add a question to the signed-in user's couple space. Session
+    authentication enforces the CSRF token."""
+    couple = active_couple(request.user)
+    if couple is None:
+        return Response(NOT_IN_COUPLE, status=status.HTTP_403_FORBIDDEN)
+    serializer = QuestionInputSerializer(data=request.data)
+    if not serializer.is_valid():
+        logger.warning("Invalid space question; fields: %s", sorted(serializer.errors))
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    data = serializer.validated_data
+    question = CustomQuestion.objects.create(space=couple, text=data["text"], mode=data["mode"])
+    return Response(
+        {"text": question.text, "mode": question.mode, "is_custom": True},
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @api_view(["POST"])
@@ -204,8 +267,15 @@ def login_page(request):
 
 
 def mode_select_page(request):
-    return render(request, "game/mode_select.html")
+    return render(request, "game/mode_select.html", {"in_space": in_space(request)})
 
 
+@ensure_csrf_cookie  # The space API needs the CSRF token for POSTs.
 def play_page(request):
-    return render(request, "game/play.html")
+    return render(request, "game/play.html", {"in_space": in_space(request)})
+
+
+def in_space(request):
+    """Whether the page should play in the user's couple space rather than
+    with a secret word from the URL."""
+    return active_couple(request.user) is not None

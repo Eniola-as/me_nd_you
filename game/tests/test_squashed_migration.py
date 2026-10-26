@@ -13,6 +13,7 @@ from django.db.migrations.state import ProjectState
 from django.test import TestCase, TransactionTestCase
 
 SQUASH = ("game", "0001_squashed_0005_repair_questions")
+AFTER_SQUASH = ("game", "0006_custom_question_space")  # First migration after the squash.
 ORIGINALS = [
     ("game", "0001_initial"),
     ("game", "0002_load_questions"),
@@ -73,9 +74,11 @@ class SquashedMigrationTestCase(TransactionTestCase):
     serialized_rollback = True  # Restore the question bank for later tests.
 
     def tearDown(self):
-        # Leave the database fully migrated through the originals; Django
-        # then treats the squash as applied too.
+        # Leave the database fully migrated: the originals (so Django treats
+        # the squash as applied), then everything after the squash.
         migrate([ORIGINALS[-1]], use_squash=False)
+        ex = executor()
+        ex.migrate(ex.loader.graph.leaf_nodes("game"))
         super().tearDown()
 
 
@@ -85,7 +88,8 @@ class FreshDatabaseTests(TestCase):
         self.assertIn(SQUASH, graph.nodes)
         for original in ORIGINALS:
             self.assertNotIn(original, graph.nodes)
-        self.assertEqual(graph.leaf_nodes("game"), [SQUASH])
+        # Later migrations build on the squash.
+        self.assertIn(SQUASH, {p.key for p in graph.node_map[AFTER_SQUASH].parents})
 
     def test_models_and_migrations_agree(self):
         loader = MigrationLoader(None, ignore_no_migrations=True)
@@ -119,8 +123,10 @@ class SquashMatchesOriginalsTests(SquashedMigrationTestCase):
 @skipUnless(connection.vendor == "sqlite", "The original 0003 cannot run on PostgreSQL.")
 class ExistingDatabaseTests(SquashedMigrationTestCase):
     def build_squash_reference(self):
+        # A fresh database: the squash plus everything after it.
         migrate([("game", None)])
-        migrate([SQUASH])
+        ex = executor()
+        ex.migrate(ex.loader.graph.leaf_nodes("game"))
         return game_schema()
 
     def test_partially_migrated_database_keeps_using_the_originals(self):
@@ -133,8 +139,14 @@ class ExistingDatabaseTests(SquashedMigrationTestCase):
         self.assertNotIn(SQUASH, graph.nodes)
         self.assertIn(ORIGINALS[3], graph.nodes)
 
+        # 0006 depends on the squash; for this database Django re-points that
+        # dependency to the last original, 0005.
+        self.assertIn(ORIGINALS[-1], {p.key for p in graph.node_map[AFTER_SQUASH].parents})
         plan = executor().migration_plan(graph.leaf_nodes("game"))
-        self.assertEqual([m.name for m, _ in plan], ["0004_unique_secret_word", "0005_repair_questions"])
+        self.assertEqual(
+            [m.name for m, _ in plan],
+            ["0004_unique_secret_word", "0005_repair_questions", AFTER_SQUASH[1]],
+        )
         executor().migrate(graph.leaf_nodes("game"))
         self.assertEqual(game_schema(), reference)
 
@@ -143,4 +155,6 @@ class ExistingDatabaseTests(SquashedMigrationTestCase):
         migrate([ORIGINALS[-1]], use_squash=False)
         loader = MigrationLoader(connection)
         self.assertIn(SQUASH, loader.applied_migrations)
-        self.assertEqual(executor().migration_plan(loader.graph.leaf_nodes("game")), [])
+        # Only what comes after the squash remains.
+        plan = executor().migration_plan(loader.graph.leaf_nodes("game"))
+        self.assertEqual([m.name for m, _ in plan], [AFTER_SQUASH[1]])

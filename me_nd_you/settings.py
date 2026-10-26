@@ -176,6 +176,9 @@ TRUSTED_PROXY_COUNT = config("TRUSTED_PROXY_COUNT", default=None, cast=lambda v:
 
 # Django REST Framework: JSON only; the browsable HTML API is for development.
 REST_FRAMEWORK = {
+    # Sessions only (no HTTP Basic). Session auth enforces CSRF for signed-in
+    # users on unsafe methods.
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"]
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     # Per-client limits on everything that takes a secret word, to slow down
@@ -184,6 +187,8 @@ REST_FRAMEWORK = {
         "login": "10/min",
         "questions": "30/min",
         "custom_questions": "10/min",
+        "space_questions": "30/min",
+        "space_custom_questions": "10/min",
     },
     # How many proxies in front of the app append to X-Forwarded-For. Rate
     # limits identify clients by the address the last trusted proxy added;
