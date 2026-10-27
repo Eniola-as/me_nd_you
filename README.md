@@ -172,6 +172,8 @@ The live version of this application is hosted on **Render's free hosting tier**
 
 Live updates between partners use Channels' in-memory layer, which works within one server process. Running several processes would need a shared layer such as Redis.
 
+The app installs as a PWA, but pages don't load offline yet: the service worker is registered with the scope `/static/`, so it doesn't control any app page. Fixing this is a small future task (serve the worker from `/` and cache the pages it should open offline).
+
 ## Contributing
 
 Contributions are welcome. If you would like to improve this project, please follow these steps:
