@@ -166,17 +166,32 @@ class RetirementTests(TestCase):
         legacy.mark_ready(self.ann)
         legacy.mark_ready(self.ben)
 
+    # Each access point is checked on its own, each as the first request
+    # after the deadline, so one refusal can't stand in for another.
+
     def test_completed_move_retires_the_secret_word_after_the_deadline(self):
         past_deadline(self.link)
         response = legacy_login()
         self.assertEqual(response.status_code, 403)
         self.assertIn("sign in", response.json()["detail"].lower())
-        self.assertEqual(legacy_questions(), [])
-        added = Client().post("/api/custom-questions/", {"secret": SECRET, "text": "New?", "mode": "questions"},
-                              content_type="application/json")
-        self.assertEqual(added.status_code, 404)
         self.link.refresh_from_db()
         self.assertIsNotNone(self.link.retired_at)
+
+    def test_retired_secret_loads_no_questions(self):
+        self.assertNotEqual(legacy_questions(), [])  # Works before the deadline.
+        cache.clear()
+        past_deadline(self.link)
+        self.assertEqual(legacy_questions(), [])
+
+    def test_retired_secret_cannot_add_custom_questions(self):
+        def add(text):
+            return Client().post("/api/add-custom-question/", {"secret": SECRET, "text": text, "mode": "questions"},
+                                 content_type="application/json")
+
+        self.assertEqual(add("Before?").status_code, 201)  # The route and payload are right.
+        past_deadline(self.link)
+        self.assertEqual(add("After?").status_code, 404)
+        self.assertFalse(CustomQuestion.objects.filter(text="After?").exists())
 
     def test_retirement_keeps_the_record_and_its_questions(self):
         past_deadline(self.link)
