@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-Me & You is a playful, mobile-friendly web application built with Django for two people to share a private, interactive game experience. Players can create a session with a secret word, choose from several themed game modes, and explore a rotating set of questions, challenges, and prompts.
+Me & You is a playful, mobile-friendly web application built with Django for two people to share a private, interactive game experience. Each person has an account; partners share a private couple space, choose from several themed game modes, and play through the same shuffled deck of questions, challenges, and prompts together.
 
 The app is designed to feel like a lightweight social game that can be played casually at home, during dates, or in any private setting. It also includes support for custom questions so each couple can personalize the experience.
 
@@ -14,20 +14,18 @@ visit https://me-nd-you.onrender.com
 
 ## Key Features
 
-- Private game sessions using a shared secret word
+- Email accounts with display names; partners never see each other's email
+- Private couple spaces, joined with a single-use invitation link
 - Multiple game modes including Questions, Truth or Dare, Challenges, Spicy Only, Mixed Mode, and Would You Rather
-- Randomized prompt delivery with a flip-card style experience
-- Custom question creation for each couple
-- Mobile-friendly, installable PWA that offers to resume your last session
-- REST API support for questions and session management
-- Experimental WebSocket syncing between partners (see Known Limitations)
+- A server-held game: both partners always see the same card, in real time over WebSockets
+- Flip-card prompts, and custom questions that join the shared deck straight away
+- Leaving a couple closes it for both partners; an admin can restore it
+- Mobile-friendly, installable PWA
 
 ## Screenshots
 
 > Placeholder screenshots for future documentation.
 
-
-![Login Screen](static/screenshots/login.png)
 
 ![Game Modes](static/screenshots/modes.png)
 
@@ -99,80 +97,14 @@ visit https://me-nd-you.onrender.com
 
 Deployment to Render is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-### Moving an existing database to email accounts
-
-The project now uses its own user model (`accounts.User`, email and
-password). Django cannot switch an existing database to a new user model in
-place: `migrate` stops with `InconsistentMigrationHistory` before changing
-anything. Carry the game data into a fresh database instead (XML keeps
-timestamps exact; JSON rounds them to milliseconds).
-
-The export must run with the code from commit `82a8222`: today's code expects
-columns an old database doesn't have yet (`dumpdata` fails with `no such
-column: game_customquestion.space_id`). A temporary worktree provides that
-code without touching your checkout; it reads a copy of the database, and its
-throwaway `SECRET_KEY` doesn't affect the data. Stop the development server,
-activate the virtual environment, and run from the project folder:
-
-```powershell
-# PowerShell
-# 1. Export the couples' data with the older code, from a copy of the database.
-git worktree add ..\me_nd_you_export 82a8222
-Copy-Item db.sqlite3 ..\me_nd_you_export\db.sqlite3
-Push-Location ..\me_nd_you_export
-$env:SECRET_KEY = "export-only"; $env:DEBUG = "True"
-python manage.py dumpdata game.CoupleSession game.CustomQuestion game.PlayedQuestion --format xml -o ..\me_nd_you\game_data.xml
-Remove-Item Env:SECRET_KEY, Env:DEBUG
-Pop-Location
-git worktree remove --force ..\me_nd_you_export
-# 2. Keep the old database as a backup.
-Rename-Item db.sqlite3 db.before-accounts.sqlite3
-# 3. Create the fresh database and load the data back.
-python manage.py migrate
-python manage.py loaddata game_data.xml
-# 4. Recreate admin logins (old admin accounts are not carried over).
-python manage.py createsuperuser
-```
-
-```bash
-# Bash
-# 1. Export the couples' data with the older code, from a copy of the database.
-git worktree add ../me_nd_you_export 82a8222
-cp db.sqlite3 ../me_nd_you_export/db.sqlite3
-(cd ../me_nd_you_export && SECRET_KEY=export-only DEBUG=True \
-  python manage.py dumpdata game.CoupleSession game.CustomQuestion game.PlayedQuestion --format xml -o ../me_nd_you/game_data.xml)
-git worktree remove --force ../me_nd_you_export
-# 2. Keep the old database as a backup.
-mv db.sqlite3 db.before-accounts.sqlite3
-# 3. Create the fresh database and load the data back.
-python manage.py migrate
-python manage.py loaddata game_data.xml
-# 4. Recreate admin logins (old admin accounts are not carried over).
-python manage.py createsuperuser
-```
-
-If anything goes wrong, rename `db.before-accounts.sqlite3` back to
-`db.sqlite3`. `game_data.xml` contains secret words: keep it private and
-delete it when done.
-
 ## Running the Tests
 
 ```bash
-python manage.py test accounts game
+python manage.py test accounts couples game play
 node --test "tests/js/*.test.js"
 ```
 
 The JavaScript tests need Node.js 20 or newer and have no dependencies to install.
-
-## Maintenance
-
-Couple sessions with no activity for 30 days count as expired. Delete them
-(with their custom questions) by running this regularly, for example as a
-scheduled job:
-
-```bash
-python manage.py purge_inactive_sessions
-```
 
 ## Running the Development Server
 
@@ -182,25 +114,25 @@ After setup, open your browser and visit:
 http://127.0.0.1:8000/
 ```
 
-You can then create a session, choose a game mode, and start playing.
+Create an account, start a couple space, send your partner the invitation link, then choose a game mode and play.
 
 ## Project Structure
 
 ```text
 me_nd_you/
-├── game/
+├── accounts/        # Email accounts, sign-in, display names
+├── couples/         # Couple spaces, invitations, leaving and admin recovery
+├── game/            # Question bank, landing/modes/play pages, custom questions
 │   ├── fixtures/
 │   │   └── questions.json
 │   ├── templates/
 │   │   └── game/
-│   ├── management/
 │   ├── migrations/
 │   ├── tests/
 │   ├── models.py
 │   ├── views.py
-│   ├── serializers.py
-│   ├── consumers.py
 │   └── urls.py
+├── play/            # Server-authoritative game engine: rooms, actions, WebSockets
 ├── me_nd_you/
 │   ├── settings.py
 │   ├── urls.py
@@ -218,17 +150,15 @@ me_nd_you/
 
 ## How the Game Works
 
-1. The user enters two names and a secret word to create or join a private session.
-2. The app stores the session and associates it with the couple.
-3. The player selects a game mode from the available list.
-4. A shuffled set of questions is loaded from the backend.
-5. The frontend displays each prompt in a card-based interface.
-6. Players can flip the card, move to the next prompt, and add their own custom questions.
+1. Each partner creates an account; one starts a couple space and sends the other a single-use invitation link.
+2. Either partner picks a game mode.
+3. The server shuffles that mode's questions (plus the couple's own) into one deck for the couple.
+4. Next and Reset are requests to the server, which applies each one once, in order, and sends both partners the same card.
+5. Players flip the card, move on, and add their own questions, which join the deck for both.
 
 ## Future Improvements
 
 - Improve multiplayer syncing for more reliable real-time play
-- Add user authentication and account profiles
 - Add admin tools for managing prompts and categories
 - Improve the UI with richer animations and accessibility enhancements
 - Add more moderation controls for custom questions
@@ -240,16 +170,7 @@ me_nd_you/
 
 The live version of this application is hosted on **Render's free hosting tier**. Because of the limitations of the free plan, some features that depend on persistent connections or online session sharing (such as multiplayer gameplay) may not function as intended in the deployed version.
 
-Real-time syncing between partners is still experimental: the deployed app runs under WSGI, which cannot serve WebSockets, and progress is stored per browser rather than shared between devices.
-
-To try the WebSocket features, clone the repository and run the project locally using the setup instructions above.
-
-**PostgreSQL is not supported yet.** Migration `0003` changes `CoupleSession.id`
-from an integer to a UUID. SQLite accepts that, but PostgreSQL refuses it
-(`cannot cast type bigint to uuid`), so a fresh PostgreSQL database cannot be
-migrated. This must be resolved (for example by squashing the migrations)
-before PostgreSQL is chosen for production.
-
+Live updates between partners use Channels' in-memory layer, which works within one server process. Running several processes would need a shared layer such as Redis.
 
 ## Contributing
 

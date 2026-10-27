@@ -3,42 +3,16 @@
 Recorded decisions for Me & You. Each entry says what was decided, the
 behaviour to build, and anything still open.
 
-## 1. Legacy secret-word couples (decided; built in couples/legacy.py)
+## 1. Secret-word couples (removed 2026-10-27)
 
-Preserve all existing secret-word couples and their data. Do not switch off
-legacy access immediately. Retire it per couple only after both partners have
-accounts, with a 14-day grace period. Nothing is deleted at any step; every
-step is reversible by an admin.
-
-1. **Claim.** A signed-in member of a couple space enters the old couple's two
-   names and secret word on the space page (rate limited, 5 a minute; wrong
-   names and wrong secrets get the same answer). The old couple is *linked* to
-   the space: its custom questions appear in the space. No data is copied,
-   moved or deleted. A legacy couple links to one space, and a space links one
-   legacy couple. The secret word keeps working.
-2. **Ready.** Each member confirms "We've moved over" on the space page (and
-   can take it back). The countdown starts only when the space has both
-   members and both have confirmed: the secret word then keeps working for 14
-   more days. Legacy pages show a notice explaining each stage, with the date.
-3. **Deadline.** When the date passes (checked the next time the secret word
-   or the space page is used), the secret word stops working only if the move
-   is still complete: the space is open, both members are still in it and both
-   are still confirmed. Otherwise the secret word keeps working and the link is
-   flagged "needs resolution" for an admin. After retirement the legacy login,
-   questions API, custom-question API and game room refuse the secret word,
-   including connections that were already open.
-
-Admin recovery (Django admin, Legacy links): *clear the retirement* (the
-secret word works again; both confirm again to restart the countdown) and
-*unlink* (undo the claim; the old couple works as before and can be claimed
-again). Links can't be added or deleted by hand. A linked legacy couple is
-never removed by `purge_inactive_sessions`.
-
-Implications:
-- Anyone who knows a couple's secret can claim it. That is the same access the
-  secret already grants today; the readiness step, grace period and admin
-  unlink cover mistakes.
-- Seen-question progress lives in each browser today, so it is not carried over.
+The original secret-word sessions had no real users: the only couples were
+the owner's test data. Instead of moving them over to accounts, the whole
+secret-word system was removed: the secret-word login and pages, its APIs and
+WebSocket relay, the browser-driven game, and the claim and retirement flow
+that had been built for the transition. Migration `game.0007` deletes any
+secret-word couples with their custom questions and play history;
+`couples.0004` drops the claim links. Everyone now plays with an account in a
+couple space, on the server-held game engine.
 
 ## 2. Display names (decided; build before public launch)
 

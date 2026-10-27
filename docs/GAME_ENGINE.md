@@ -1,5 +1,9 @@
 # Multiplayer research and game-engine design
 
+> Update 2026-10-27: the secret-word system has been removed (see
+> docs/PRODUCT_DECISIONS.md §1). Every mode now runs on this engine; the
+> mentions of legacy secret-word rooms below describe the state at the time.
+
 ## Part 1: Research (publicly observable mechanics)
 
 Only behaviour visible to players or described publicly. No code, assets,

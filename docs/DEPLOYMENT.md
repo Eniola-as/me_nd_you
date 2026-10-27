@@ -58,17 +58,9 @@ values never enter the repository.
    prices, free-tier limits, whether `preDeployCommand` is available on the
    chosen instance type, and the database's backup schedule and retention.)
 4. **Find out the proxy count** for `TRUSTED_PROXY_COUNT`.
-5. **Export the current production data** (it lives in a SQLite file that is
-   replaced on every deploy, so export it before anything else). If Render
-   Shell is available on the plan (**verify**):
 
-   ```bash
-   python manage.py dumpdata game.CoupleSession game.CustomQuestion game.PlayedQuestion --format xml -o /tmp/game_data.xml
-   ```
-
-   Copy the file somewhere private: it contains couples' secret words. If no
-   shell is available, the data cannot be exported and the switch would lose
-   it; decide that explicitly.
+There is no production data to carry over: the secret-word couples were test
+data and that system has been removed. The PostgreSQL database starts empty.
 
 ## First deploy
 
@@ -76,12 +68,10 @@ values never enter the repository.
    connection string.
 2. Set the other dashboard variables (table above).
 3. Deploy. The build installs dependencies and collects static files; the
-   pre-deploy step runs `migrate`, which on an empty database applies
-   `accounts.0001_initial` and the squashed `game` migration (schema plus the
-   1,917 questions).
-4. If you exported data, load it (Shell): `python manage.py loaddata /tmp/game_data.xml`.
-5. Create an admin: `python manage.py createsuperuser` (email and password).
-6. Run the checks below.
+   pre-deploy step runs `migrate`, which on an empty database creates the
+   accounts, couples, game and play tables and loads the 1,917 questions.
+4. Create an admin: `python manage.py createsuperuser` (email and password).
+5. Run the checks below.
 
 ## After every deploy: checks
 
