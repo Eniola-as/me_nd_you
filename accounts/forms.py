@@ -3,8 +3,11 @@ from django.contrib.auth.forms import (
     AdminUserCreationForm,
     AuthenticationForm,
     BaseUserCreationForm,
+    PasswordResetForm,
     UserChangeForm,
 )
+
+from . import emails
 
 from .models import User
 
@@ -70,3 +73,15 @@ class EmailAuthenticationForm(AuthenticationForm):
 
     def clean_username(self):
         return User.objects.normalize_email(self.cleaned_data.get("username"))
+
+
+class ResetRequestForm(PasswordResetForm):
+    """Django's reset form (it only emails active users with a usable
+    password, and saves the same way for unknown addresses). The link
+    carries uid and token after "#", and is sent in the background."""
+
+    def send_mail(self, subject_template_name, email_template_name, context, from_email, to_email,
+                  html_email_template_name=None):
+        link = (f"{context['protocol']}://{context['domain']}/accounts/password/reset/confirm/"
+                f"#{context['uid']}.{context['token']}")
+        emails.send_in_background(context["user"], "password_reset", {"link": link})

@@ -19,7 +19,7 @@ from game.models import Question
 
 from . import games
 from .cards import DatabaseCards, card_for_question
-from .groups import room_group_name
+from .groups import room_group_name, user_group_name
 from .models import GameRoom, RoomEvent
 
 
@@ -121,6 +121,13 @@ def add_custom_card(question):
             new_state = games.get_game(room.game).insert_card(room.state, card, seed=games.new_seed())
             if new_state != room.state:
                 _commit(room, new_state, kind="insert_card", actor=None, payload={"key": card["key"]})
+
+
+def notify_user_signed_out(user_id):
+    """Close every open game connection of this user."""
+    layer = get_channel_layer()
+    if layer is not None:
+        async_to_sync(layer.group_send)(user_group_name(user_id), {"type": "user.signed_out"})
 
 
 def notify_room(room_id, version):

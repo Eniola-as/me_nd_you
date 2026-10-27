@@ -11,3 +11,11 @@ def room_group_name(room_id):
     payload = json.dumps(["play", "room", str(room_id), "v1"]).encode()
     digest = hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
     return f"game.{digest}"
+
+
+def user_group_name(user_id):
+    """The Channels group of all one user's game connections, named the same
+    way, so they can be closed together (for example after a password reset)."""
+    payload = json.dumps(["play", "user", str(user_id), "v1"]).encode()
+    digest = hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
+    return f"user.{digest}"

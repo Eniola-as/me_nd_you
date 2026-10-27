@@ -20,7 +20,7 @@ import json
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from .groups import room_group_name
+from .groups import room_group_name, user_group_name
 
 MAX_MESSAGE_CHARS = 2_000
 FORBIDDEN_CLOSE_CODE = 4403
@@ -83,6 +83,7 @@ def parse_action(text_data):
 class RoomConsumer(AsyncWebsocketConsumer):
     room_id = None
     group = None
+    user_group = None
     last_version = 0
 
     async def connect(self):
@@ -95,12 +96,16 @@ class RoomConsumer(AsyncWebsocketConsumer):
         self.room_id, snapshot = opened
         self.group = room_group_name(self.room_id)
         await self.channel_layer.group_add(self.group, self.channel_name)
+        self.user_group = user_group_name(self.user.pk)
+        await self.channel_layer.group_add(self.user_group, self.channel_name)
         await self.accept()
         await self.send_state(snapshot, force=True)
 
     async def disconnect(self, close_code):
         if self.group:
             await self.channel_layer.group_discard(self.group, self.channel_name)
+        if self.user_group:
+            await self.channel_layer.group_discard(self.user_group, self.channel_name)
 
     async def receive(self, text_data=None, bytes_data=None):
         from . import services
@@ -141,6 +146,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
             await self.revoke()
 
     async def room_closed(self, event):
+        await self.revoke()
+
+    async def user_signed_out(self, event):
+        """The user was signed out everywhere (a password reset)."""
         await self.revoke()
 
     async def send_state(self, snapshot, force=False):

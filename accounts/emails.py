@@ -3,6 +3,7 @@ styles, no images or tracking). Links carry their token after "#", which
 browsers never send, so tokens stay out of server and proxy logs."""
 
 import logging
+import threading
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -32,6 +33,19 @@ def send_account_email(user, template, context):
     message = EmailMultiAlternatives(subject, body, None, [user.email])
     message.attach_alternative(render_to_string(f"accounts/email/{template}.html", context), "text/html")
     message.send()
+
+
+def send_in_background(user, template, context):
+    """Send from a background thread, so the response doesn't wait for the
+    provider and takes the same time whether or not an email goes out."""
+
+    def run():
+        try:
+            send_account_email(user, template, context)
+        except Exception:
+            logger.exception("Could not send a %s email.", template)
+
+    threading.Thread(target=run, name="account-email", daemon=True).start()
 
 
 def verification_token(user):
