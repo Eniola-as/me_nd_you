@@ -19,6 +19,7 @@ visit https://me-nd-you.onrender.com
 - Private couple spaces, joined with a single-use invitation link
 - Multiple game modes including Questions, Truth or Dare, Challenges, Spicy Only, Mixed Mode, and Would You Rather
 - A server-held game: both partners always see the same card, in real time over WebSockets
+- Questions mode: each partner can answer privately, and both answers are revealed together once you've both answered (answering is optional)
 - Flip-card prompts, and custom questions that join the shared deck straight away
 - Leaving a couple closes it for both partners; an admin can restore it
 - Mobile-friendly, installable PWA
@@ -164,6 +165,8 @@ me_nd_you/
 - Improve the UI with richer animations and accessibility enhancements
 - Add more moderation controls for custom questions
 - Support deployment improvements for a more stable live experience
+- Saved answer history for Questions mode, so couples can look back (today answers are deleted when you move to the next card)
+- Reactions to a revealed answer
 
 ## Known Limitations
 

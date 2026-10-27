@@ -41,3 +41,21 @@ couple space, on the server-held game engine.
 - Rejoining a closed couple is not offered at first; an admin can restore it.
 
 Open: confirm the "closes for both" rule.
+
+## 4. Questions mode: private answers and a reveal (decided 2026-10-27)
+
+Questions mode keeps its name and its questions (550 plus the couple's
+custom questions) and adds optional private answers:
+
+- Answering is optional. Next works at any time, so couples can still just
+  talk.
+- An answer is never sent to the partner's browser before both have
+  answered; the server enforces this. Until then the partner only sees
+  "<name> has answered."
+- You can change your answer until the reveal. Answers are 1-500
+  characters, checked by the server.
+- If Next is pressed before both have answered, the lone answer is deleted
+  unseen. If someone leaves or reloads, their answer waits on the server.
+- Answers are not kept. Next, Reset and closing the couple delete them from
+  the database; answer text is never written to the game history.
+- Later, not now: saved answer history, and reactions to a revealed answer.

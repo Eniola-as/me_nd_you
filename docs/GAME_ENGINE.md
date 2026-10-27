@@ -3,6 +3,11 @@
 > Update 2026-10-27: the secret-word system has been removed (see
 > docs/PRODUCT_DECISIONS.md §1). Every mode now runs on this engine; the
 > mentions of legacy secret-word rooms below describe the state at the time.
+>
+> Update 2026-10-27: Questions mode now runs on the "answer then reveal" game
+> (`answer_reveal`, variant `questions` only); see docs/PRODUCT_DECISIONS.md
+> §4. The other shared-deck modes still use `questions`, and Truth or Dare
+> uses `truth_or_dare`.
 
 ## Part 1: Research (publicly observable mechanics)
 

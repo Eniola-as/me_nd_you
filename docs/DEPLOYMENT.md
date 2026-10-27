@@ -89,8 +89,10 @@ data and that system has been removed. The PostgreSQL database starts empty.
 - The site loads over HTTPS, and `/admin/` is not the admin path.
 - Two browsers on the same couple: Next on one shows the question on the
   other (WebSockets work).
-- A new couple's first load in "Questions" mode shows 550 remaining
-  (549 after the first question is drawn).
+- A new couple's first load in "Questions" mode shows 549 left: 550
+  questions, with the first one on the card.
+- In "Questions" mode, answer on one device: the other shows "<name> has
+  answered." but not the answer, until it answers too.
 
 ## Backups
 
