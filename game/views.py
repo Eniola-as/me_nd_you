@@ -17,18 +17,11 @@ from rest_framework.decorators import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
 
-from couples import legacy
 from couples.services import active_couple
 from play.services import add_custom_card
 from rest_framework.response import Response
 from rest_framework import status
-from .models import (
-    CoupleSession,
-    CustomQuestion,
-    Question,
-    custom_questions_for_space,
-    questions_cache_version,
-)
+from .models import CoupleSession, Question, CustomQuestion, questions_cache_version
 from .serializers import CustomQuestionSerializer, LoginSerializer, QuestionInputSerializer
 
 logger = logging.getLogger(__name__)
@@ -116,17 +109,6 @@ def login_or_register(request):
                     ),
                 },
                 status=400,
-            )
-        if session.is_retired():
-            return Response(
-                {
-                    "success": False,
-                    "detail": (
-                        "You've moved this couple over to accounts. "
-                        "Sign in with your account to play: /accounts/login/"
-                    ),
-                },
-                status=403,
             )
     except CoupleSession.DoesNotExist:
         # Create new session
@@ -229,7 +211,7 @@ def get_space_questions(request, mode):
     if couple is None:
         return Response(NOT_IN_COUPLE, status=status.HTTP_403_FORBIDDEN)
     return Response(
-        question_list(mode, custom_questions_for_space(couple), f"space:{couple.pk}")
+        question_list(mode, CustomQuestion.objects.filter(space=couple), f"space:{couple.pk}")
     )
 
 
@@ -288,13 +270,7 @@ def login_page(request):
 
 
 def mode_select_page(request):
-    space = in_space(request)
-    return render(request, "game/mode_select.html", {
-        "in_space": space,
-        # How a secret-word couple moves to accounts (couples.legacy).
-        "legacy_notice": None if space else legacy.notice_for_secret(request.GET.get("secret")),
-        "grace_days": legacy.GRACE_PERIOD.days,
-    })
+    return render(request, "game/mode_select.html", {"in_space": in_space(request)})
 
 
 @ensure_csrf_cookie  # The space API needs the CSRF token for POSTs.

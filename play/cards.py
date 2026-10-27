@@ -1,7 +1,7 @@
 """Where a couple space's cards come from: the shared question bank plus the
 couple's own custom questions."""
 
-from game.models import CustomQuestion, Question, custom_questions_for_space
+from game.models import CustomQuestion, Question
 
 
 def card_for_question(question):
@@ -22,7 +22,7 @@ class DatabaseCards:
 
     def all(self):
         bank = Question.objects.all()
-        custom = custom_questions_for_space(self.couple)
+        custom = CustomQuestion.objects.filter(space=self.couple)
         if self.mode != "mixed":
             bank, custom = bank.filter(mode=self.mode), custom.filter(mode=self.mode)
         cards, seen = [], set()
@@ -40,7 +40,7 @@ class DatabaseCards:
         if kind == "q":
             question = Question.objects.filter(pk=pk).first()
         elif kind == "c":
-            question = custom_questions_for_space(self.couple).filter(pk=pk).first()
+            question = CustomQuestion.objects.filter(pk=pk, space=self.couple).first()
         else:
             return None
         return card_for_question(question) if question else None

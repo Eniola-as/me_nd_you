@@ -60,25 +60,14 @@ class CoupleSession(models.Model):
         """The session for a secret, or None if it is unknown or expired.
         Callers treat both the same, so expiry never reveals that a secret
         exists. Logging in again renews an expired session."""
-        session = cls.objects.filter(secret_word=secret).first() if secret else None
-        if session is None or session.is_expired() or session.is_retired():
+        session = cls.objects.filter(secret_word=secret).first()
+        if session is None or session.is_expired():
             return None
         return session
 
-    def is_retired(self):
-        """Whether the couple moved to accounts and the secret word no
-        longer works (couples.legacy)."""
-        from couples.legacy import secret_word_retired
-
-        return secret_word_retired(self)
-
     @classmethod
     def inactive(cls):
-        # A couple ever linked to a couple space is never purged: its
-        # questions belong to that space too.
-        return cls.objects.filter(
-            last_active__lt=timezone.now() - cls.INACTIVITY_LIMIT, space_links__isnull=True
-        )
+        return cls.objects.filter(last_active__lt=timezone.now() - cls.INACTIVITY_LIMIT)
 
     def __str__(self):
         return f"{self.partner1_name} & {self.partner2_name}"
@@ -126,15 +115,6 @@ class CustomQuestion(models.Model):
 
     def __str__(self):
         return f"Custom by {self.couple}: {self.text[:50]}"
-
-
-def custom_questions_for_space(couple):
-    """A couple space's own questions plus those of a secret-word couple
-    linked to it."""
-    return CustomQuestion.objects.filter(
-        models.Q(space=couple)
-        | models.Q(couple__space_links__couple=couple, couple__space_links__unlinked_at__isnull=True)
-    ).distinct()
 
 
 class PlayedQuestion(models.Model):

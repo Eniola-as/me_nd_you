@@ -5,19 +5,13 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from accounts.views import rate_limited
-from game.views import ClientRateThrottle
 
-from . import legacy, services
+from . import services
 
 # The token from an invitation link waits here until the person accepts. It
 # never goes back into a URL or a page.
 PENDING_INVITE = "pending_invite"
 NEW_INVITE_URL = "new_invite_url"
-
-
-class LegacyClaimThrottle(ClientRateThrottle):
-    # Claiming checks a secret word, so it is limited like the legacy login.
-    scope = "legacy_claim"
 
 
 # Real tokens are 43 characters; anything far longer is not kept.
@@ -60,13 +54,8 @@ def space(request):
 
     user = request.user
     membership = services.active_membership(user)
-    link = legacy.link_for_couple(membership.couple) if membership else None
     return render(request, "couples/space.html", {
         "membership": membership,
-        "legacy_link": link,
-        "ready_names": [u.name_for_partner for u in link.ready.all()] if link else [],
-        "user_ready": link is not None and link.ready.filter(pk=user.pk).exists(),
-        "grace_days": legacy.GRACE_PERIOD.days,
         "partner": services.partner_of(user),
         "pending_invitation": services.pending_invitation(user),
         # Shown once, right after it was created.
@@ -93,19 +82,6 @@ def _handle_action(request):
             messages.success(request, "You've joined your partner's couple space.")
         elif action == "dismiss_invite":
             request.session.pop(PENDING_INVITE, None)
-        elif action == "claim_legacy":
-            if not LegacyClaimThrottle().allow_request(request, None):
-                messages.error(request, "Too many attempts. Please wait a minute and try again.")
-                return
-            legacy.claim(user, request.POST.get("partner1_name"), request.POST.get("partner2_name"),
-                         request.POST.get("secret_word"))
-            messages.success(request, "Your old couple is linked. Its questions are now in this space.")
-        elif action == "mark_ready":
-            legacy.mark_ready(user)
-            messages.success(request, "Thanks. The countdown starts once you've both confirmed.")
-        elif action == "withdraw_ready":
-            legacy.withdraw_ready(user)
-            messages.success(request, "Your secret word keeps working until you both confirm again.")
         elif action == "leave_couple":
             if request.POST.get("confirm") != "yes":
                 messages.error(request, "Tick the box to confirm that you want to close this space.")
