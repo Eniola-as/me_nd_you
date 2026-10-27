@@ -5,6 +5,7 @@ from django.conf import settings
 from django.test import SimpleTestCase, TestCase
 
 from game.models import Question
+from game.tests.test_new_dares import TEXTS as APPROVED_NEW_DARES
 
 ROOT = Path(settings.BASE_DIR)
 FIXTURE = ROOT / "game" / "fixtures" / "questions.json"
@@ -78,8 +79,10 @@ class RepairPlanTests(SimpleTestCase):
 
 
 class QuestionMigrationTests(TestCase):
-    def test_fresh_database_contains_exactly_the_fixture(self):
-        self.assertEqual(Question.objects.count(), len(fixture_rows()))
+    def test_fresh_database_contains_exactly_the_fixture_and_the_approved_dares(self):
+        # Migration 0009 adds the owner-approved dares on top of the fixture.
+        self.assertEqual(Question.objects.count(), len(fixture_rows()) + len(APPROVED_NEW_DARES))
+        self.assertEqual(Question.objects.exclude(text__in=APPROVED_NEW_DARES).count(), len(fixture_rows()))
 
     def test_new_questions_get_ids_after_the_fixture(self):
         # 0002 inserts explicit ids; PostgreSQL's id sequence must be reset
