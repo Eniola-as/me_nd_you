@@ -1,0 +1,902 @@
+[
+ {
+  "number": 1,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Send me three emojis that sum up our last date. I get three guesses to decode them, and every miss costs you a compliment."
+ },
+ {
+  "number": 2,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Do your best impression of me first thing in the morning. I score it out of 10, and anything under 7 means you go again."
+ },
+ {
+  "number": 3,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "On video, give me a 60-second tour of your room as if it were a museum, with me as its most famous exhibit."
+ },
+ {
+  "number": 4,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Feed me a snack you know I love while I keep my eyes shut. If I guess what it is, you owe me a kiss."
+ },
+ {
+  "number": 5,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Send me a voice note reading my last text to you as if it were the most romantic line ever written."
+ },
+ {
+  "number": 6,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Rename me in your phone to the most flattering nickname you can think of and send me a screenshot."
+ },
+ {
+  "number": 7,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Hide a handwritten compliment somewhere I'll find it later today, and don't tell me where."
+ },
+ {
+  "number": 8,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Hold both my hands and keep eye contact for 60 seconds. Whoever laughs first owes the other a kiss."
+ },
+ {
+  "number": 9,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "On a video call, recreate the face you made the first time you saw me, then tell me what you were thinking."
+ },
+ {
+  "number": 10,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Play a song that reminds you of me and sing me your favorite line while looking me in the eye."
+ },
+ {
+  "number": 11,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Sit on my lap facing me and stay there until your next turn."
+ },
+ {
+  "number": 12,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Text me the cheesiest pickup line you know, then follow it with one you actually mean."
+ },
+ {
+  "number": 13,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "On video, take off one piece of clothing for every compliment I give you in the next two minutes."
+ },
+ {
+  "number": 14,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Text me a message that starts \"Tonight I'm going to…\" and finish it in exactly ten words. Make every word count."
+ },
+ {
+  "number": 15,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Set a 10-minute timer. Every two minutes, take off one item of my clothing, your choice which."
+ },
+ {
+  "number": 16,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Bring your lips as close to mine as you can for 30 seconds without kissing me. If you crack first, I choose where you kiss me next."
+ },
+ {
+  "number": 17,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a photo in the underwear you'd most like me to take off you."
+ },
+ {
+  "number": 18,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Call me and talk me through, in detail, the first five minutes after I walk through your door tonight."
+ },
+ {
+  "number": 19,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Kiss your way from my ankle to my knee, as slowly as you can stand."
+ },
+ {
+  "number": 20,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Lie still with your hands behind your head for two minutes while I touch you wherever I like. If your hands move, the clock restarts."
+ },
+ {
+  "number": 21,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "On a video call, show me with your hands, not words, exactly how you'd want me to touch you."
+ },
+ {
+  "number": 22,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a sext in three parts, ten minutes apart, each one more explicit than the last."
+ },
+ {
+  "number": 23,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Guide my hands to where you most want to be touched and hold them there for one minute."
+ },
+ {
+  "number": 24,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Feed me a strawberry (or any fruit) using only your mouth, no hands allowed."
+ },
+ {
+  "number": 25,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "On video, slowly unbutton or unzip what you're wearing, and stop only when I say \"stop\"."
+ },
+ {
+  "number": 26,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Challenge me to a thumb war, best of three. The loser makes the winner breakfast tomorrow."
+ },
+ {
+  "number": 27,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Send me a selfie of the face you'd make if I turned up at your door right now."
+ },
+ {
+  "number": 28,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Draw my portrait in 60 seconds with your non-dominant hand, then sign it and give it to me."
+ },
+ {
+  "number": 29,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Text me the exact moment today you thought about me, in one sentence starting with \"At…\"."
+ },
+ {
+  "number": 30,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Send me a photo of the view from where you are right now, captioned with what you'd be doing if I were there."
+ },
+ {
+  "number": 31,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Give me a 30-second pep talk as if I were about to win an award for being your favorite person."
+ },
+ {
+  "number": 32,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Write three words that describe me on my palm with your fingertip and make me guess them."
+ },
+ {
+  "number": 33,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Record a 15-second video saying goodnight to me as if we were already in bed together."
+ },
+ {
+  "number": 34,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Kiss me like it's our very first kiss: nervous, unsure and a little awkward."
+ },
+ {
+  "number": 35,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "On a video call, make me blush in under a minute without saying anything explicit."
+ },
+ {
+  "number": 36,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Wear something of mine for the rest of the evening, and tell me why you picked it."
+ },
+ {
+  "number": 37,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Kiss me without using your hands. The first one to use their hands takes off an item of clothing."
+ },
+ {
+  "number": 38,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a whispered voice note describing what you're wearing and which piece you'd let me take off first."
+ },
+ {
+  "number": 39,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Sit behind me and kiss along my shoulders while I count down from 30. I can't turn around until I reach zero."
+ },
+ {
+  "number": 40,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Text me the three places in your home where you most want to have s*x with me, ranked."
+ },
+ {
+  "number": 41,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Hold my wrists above my head and kiss me until I ask you to stop."
+ },
+ {
+  "number": 42,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a mirror photo wearing only one item of clothing, your choice which."
+ },
+ {
+  "number": 43,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Take my top off, then trace a slow line of kisses all the way down my back."
+ },
+ {
+  "number": 44,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "On video, tell me the dirtiest thing you've thought about me today, then act out a few seconds of it."
+ },
+ {
+  "number": 45,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Straddle me and kiss me for one full minute without letting me touch you."
+ },
+ {
+  "number": 46,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Write a steamy paragraph about us, at least five sentences, and send it to me as a voice note."
+ },
+ {
+  "number": 47,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Put an ice cube in your mouth, choose a spot on my body and kiss it until the ice melts."
+ },
+ {
+  "number": 48,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Text me the one thing you've always wanted to try in bed but never asked for, then ask me for it properly."
+ },
+ {
+  "number": 49,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Lie back and let me undress you completely, one item at a time, with no helping."
+ },
+ {
+  "number": 50,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "On video, show me what you'd wear to bed if you knew I was coming over, then put it on."
+ },
+ {
+  "number": 51,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Send me a voice note narrating my day so far like a nature documentary."
+ },
+ {
+  "number": 52,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Give me a ridiculous new hairstyle using only your hands. I have to keep it until my next turn."
+ },
+ {
+  "number": 53,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Text me our relationship as a movie: a title, a tagline and who'd play each of us."
+ },
+ {
+  "number": 54,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Hold my face in your hands and give me three honest compliments without looking away."
+ },
+ {
+  "number": 55,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Send me a photo of one thing you'd pack if we ran away together for a weekend, with a one-line reason."
+ },
+ {
+  "number": 56,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Write \"mine\" with a pen somewhere on me that only the two of us will see."
+ },
+ {
+  "number": 57,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "On a video call, hold my gaze through the camera for 30 seconds without speaking."
+ },
+ {
+  "number": 58,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Hold my hand the way you did on our first date, and don't let go until your next turn."
+ },
+ {
+  "number": 59,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Text me five words that describe the way I kiss."
+ },
+ {
+  "number": 60,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Kiss me ten times, never twice in the same spot, then tell me which one was your favorite."
+ },
+ {
+  "number": 61,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Send me a voice note humming the song that feels most like us, and make me name it."
+ },
+ {
+  "number": 62,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Give me a compliment for every letter of my name."
+ },
+ {
+  "number": 63,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a 10-second video of you biting your lip while looking straight into the camera."
+ },
+ {
+  "number": 64,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Undo my belt or waistband, then stop and wait until I say please."
+ },
+ {
+  "number": 65,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Text me a five-step plan for our next night in, each step wilder than the last."
+ },
+ {
+  "number": 66,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Kiss me up against a wall for 30 seconds, your choice which wall."
+ },
+ {
+  "number": 67,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Choose three places for me to kiss, in order, and direct me exactly."
+ },
+ {
+  "number": 68,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Gently bite my lower lip, then pull back and make me come after you."
+ },
+ {
+  "number": 69,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Turn off the lights and find me without saying a word. When you do, you can kiss me anywhere."
+ },
+ {
+  "number": 70,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Strip to your underwear and stay that way until your next turn."
+ },
+ {
+  "number": 71,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Spend two minutes exploring me with only your lips. I choose where you start."
+ },
+ {
+  "number": 72,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a voice note of the sound you'd make if I kissed you exactly where you want it right now."
+ },
+ {
+  "number": 73,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "On video, run your hand slowly from your neck to your waist while you tell me what you're thinking."
+ },
+ {
+  "number": 74,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Text me a sext made only of emojis, then call me and make me translate it out loud."
+ },
+ {
+  "number": 75,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me one rule for our next night together that I'm not allowed to break."
+ },
+ {
+  "number": 76,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Send me a photo of your fridge and plan our next date-night dinner using only what's inside."
+ },
+ {
+  "number": 77,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Teach me a dance move in 60 seconds. We both have to perform it before your next turn."
+ },
+ {
+  "number": 78,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Text me two truths and a lie about your day. If I spot the lie, you owe me a selfie."
+ },
+ {
+  "number": 79,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Pick out what I should wear tomorrow, lay it out, and explain each choice."
+ },
+ {
+  "number": 80,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Send me a screenshot of the oldest photo of us on your phone, with a caption about that day."
+ },
+ {
+  "number": 81,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Tuck my hair behind my ear and tell me the first thing you ever noticed about me."
+ },
+ {
+  "number": 82,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Send me a voice note dedicating a song to me as if you'd called in to a late-night radio show."
+ },
+ {
+  "number": 83,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Recreate the pose from our favorite photo together."
+ },
+ {
+  "number": 84,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Text me a compliment you've never given me before. It has to be specific."
+ },
+ {
+  "number": 85,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Rest your head on my chest for one minute, then tell me what my heartbeat sounds like."
+ },
+ {
+  "number": 86,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "On video, show me the spot in your home where you'd most like to kiss me, and explain why there."
+ },
+ {
+  "number": 87,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a photo of yourself in bed right now, under the covers, with a caption saying what's missing."
+ },
+ {
+  "number": 88,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Text me exactly what you'd whisper in my ear if I were next to you right now. No softening it."
+ },
+ {
+  "number": 89,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "On a video call, I choose one item of clothing for you to take off, then you choose one for me."
+ },
+ {
+  "number": 90,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a photo showing more skin than you'd ever share anywhere else. For my eyes only."
+ },
+ {
+  "number": 91,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Record a one-minute voice note describing the last time we were in bed together, and send it."
+ },
+ {
+  "number": 92,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Text me the outfit, the room and the time for our next night together, and make it non-negotiable."
+ },
+ {
+  "number": 93,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Send me a 30-second voice note describing my body as if you were painting it."
+ },
+ {
+  "number": 94,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Take a shower with me. You do all the washing; I don't lift a finger."
+ },
+ {
+  "number": 95,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Pull me onto your lap and kiss me while I keep my hands on your shoulders the whole time."
+ },
+ {
+  "number": 96,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Choose one item of my clothing. I take it off, and you put it on."
+ },
+ {
+  "number": 97,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Kiss your way down my stomach and stop at the waistband. No further, yet."
+ },
+ {
+  "number": 98,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Lie face down and let me spell a word on your back with kisses. Guess the word."
+ },
+ {
+  "number": 99,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Spend one minute kissing me only where my clothes end: neckline, sleeves and waistband."
+ },
+ {
+  "number": 100,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Lie next to me, close enough to kiss, and tell me your favorite memory of us in bed. No kissing until you finish."
+ },
+ {
+  "number": 101,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Do your best impression of my laugh, film it (10 seconds, tops) and send it over."
+ },
+ {
+  "number": 102,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Make me a paper crown, give me an official title, and crown me."
+ },
+ {
+  "number": 103,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Write a four-line poem about us and send it. Rhymes are mandatory; good rhymes are optional."
+ },
+ {
+  "number": 104,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Hide somewhere in the room. If I find you within 60 seconds, I win a kiss."
+ },
+ {
+  "number": 105,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Snap a photo of your hand and caption it with what you wish it were holding right now."
+ },
+ {
+  "number": 106,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Sit back to back with me and describe my face from memory."
+ },
+ {
+  "number": 107,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Read me the first line of a love letter to me over video, then promise to finish it by our next date."
+ },
+ {
+  "number": 108,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Make me a coupon for one favor of my choice, signed and dated."
+ },
+ {
+  "number": 109,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Name the outfit of mine you've liked most, and the day I wore it. You have one minute to text it."
+ },
+ {
+  "number": 110,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Lace your fingers with mine and tell me three things you're looking forward to doing together."
+ },
+ {
+  "number": 111,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "In your sleepiest voice, record the sweetest thing you can think of and send it to me."
+ },
+ {
+  "number": 112,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Kiss my forehead and hold it there for five slow breaths."
+ },
+ {
+  "number": 113,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Take a photo of your neck and circle the exact spot where you want my lips first."
+ },
+ {
+  "number": 114,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Top off for the rest of this video call. No putting it back on."
+ },
+ {
+  "number": 115,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Out loud and on record: the steamiest message I've ever sent you. Send the recording back to me."
+ },
+ {
+  "number": 116,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Three sentences, one fantasy: where we are, what you're wearing, what you do first. Text it now."
+ },
+ {
+  "number": 117,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Fresh out of the shower? Prove it with a photo. The towel is optional."
+ },
+ {
+  "number": 118,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Be my model for one minute on video: hold any pose I ask for, within reason."
+ },
+ {
+  "number": 119,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Kiss me while you unbutton your own shirt, one button per kiss."
+ },
+ {
+  "number": 120,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Lead me to the bedroom by the hand without saying a word, and close the door behind us."
+ },
+ {
+  "number": 121,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Put your hands on the headboard and keep them there. For the next two minutes, I'm in charge of every touch."
+ },
+ {
+  "number": 122,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Sit between my legs with your back against my chest and let my hands wander for one minute."
+ },
+ {
+  "number": 123,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Be my statue for 90 seconds: freeze in any pose I put you in while I try everything to make you move."
+ },
+ {
+  "number": 124,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Let me tie your hands loosely with a scarf for two minutes while I kiss you."
+ },
+ {
+  "number": 125,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Lie on top of me, fully clothed, for one whole song without kissing me."
+ },
+ {
+  "number": 126,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Draw the two of us as stick figures on our dream holiday and send me the masterpiece."
+ },
+ {
+  "number": 127,
+  "intensity": "playful",
+  "where": "in person",
+  "text": "Rock, paper, scissors, best of five. Every round you lose, you owe me a compliment out loud."
+ },
+ {
+  "number": 128,
+  "intensity": "playful",
+  "where": "remote",
+  "text": "Hunt down the most romantic song you'd never admit to liking and play it for me on a call."
+ },
+ {
+  "number": 129,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Narrate this exact moment out loud, for 30 seconds, like the opening scene of our romance movie."
+ },
+ {
+  "number": 130,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Guess what I'm wearing right now in five words or fewer. If you're close, I'll show you."
+ },
+ {
+  "number": 131,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Slip a note into my pocket or bag with a promise you'll keep this week."
+ },
+ {
+  "number": 132,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Plan our perfect lazy Sunday, hour by hour, and pitch it to me in a 30-second call."
+ },
+ {
+  "number": 133,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Invent a secret handshake for the two of us and teach it to me."
+ },
+ {
+  "number": 134,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Change your ringtone for me to a song that sums us up, then call me so I can hear it."
+ },
+ {
+  "number": 135,
+  "intensity": "flirty",
+  "where": "in person",
+  "text": "Brush your nose against mine and hold still until one of us smiles."
+ },
+ {
+  "number": 136,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Choose a code word that means \"I want you\" and slip it into a message to me today."
+ },
+ {
+  "number": 137,
+  "intensity": "flirty",
+  "where": "remote",
+  "text": "Over a call, describe the first date you'd plan if we met for the first time tomorrow."
+ },
+ {
+  "number": 138,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Hands behind your back for the rest of this video call: I talk, you listen, and every time they move, something comes off."
+ },
+ {
+  "number": 139,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Tonight's sleepwear, or nothing at all: show me a photo before lights out."
+ },
+ {
+  "number": 140,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Describe, in one recorded minute, how you'd wake me up tomorrow if you were here."
+ },
+ {
+  "number": 141,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Make me a five-song playlist for our next night in, each song titled with what happens while it plays."
+ },
+ {
+  "number": 142,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "For the next ten minutes, you can only reply to me with \"Yes\", \"Please\" or \"More\". I'll make it worth it."
+ },
+ {
+  "number": 143,
+  "intensity": "spicy",
+  "where": "remote",
+  "text": "Rate these from 1 to 10 and send me your scores: candles, music, lingerie, the shower, the kitchen counter."
+ },
+ {
+  "number": 144,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Agree on a safe word with me, then hand me control for three minutes: I decide where, how and how fast."
+ },
+ {
+  "number": 145,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "I give you three orders, one at a time. You may refuse exactly one."
+ },
+ {
+  "number": 146,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Kiss me in slow motion: every move at half speed, for one full minute."
+ },
+ {
+  "number": 147,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Find a spot in our home where we've never kissed, take me there, and fix that."
+ },
+ {
+  "number": 148,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Wrap yourself around me from behind and don't let go until I say your name."
+ },
+ {
+  "number": 149,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "You're not allowed to make a sound for the next two minutes, no matter what I do. Break the silence and I get another two."
+ },
+ {
+  "number": 150,
+  "intensity": "spicy",
+  "where": "in person",
+  "text": "Dim the lights, put on our song, and make me forget what we were doing."
+ }
+]

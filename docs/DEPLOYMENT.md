@@ -69,7 +69,8 @@ data and that system has been removed. The PostgreSQL database starts empty.
 2. Set the other dashboard variables (table above).
 3. Deploy. The build installs dependencies and collects static files; the
    pre-deploy step runs `migrate`, which on an empty database creates the
-   accounts, couples, game and play tables and loads the 1,917 questions.
+   accounts, couples, game and play tables and loads the 2,067 questions
+   (the original 1,917 plus 150 approved Truth or Dare dares).
 4. Create an admin: `python manage.py createsuperuser` (email and password).
 5. Run the checks below.
 

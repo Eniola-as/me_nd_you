@@ -9,6 +9,7 @@ from django.test import Client, TestCase, TransactionTestCase
 
 from couples import services
 from game.models import CustomQuestion, Question
+from game.tests.test_new_dares import TEXTS as APPROVED_NEW_DARES
 from game.truth_or_dare import DARE, TRUTH, classify
 
 BEFORE = [("game", "0007_remove_secret_word_couples")]
@@ -34,8 +35,14 @@ class ClassifyTests(TestCase):
 
 
 class BankSplitTests(TestCase):
+    # The split of the original bank. The owner-approved dares added later
+    # (migration 0009) are dares by approval, not by this rule.
+
+    def original(self):
+        return Question.objects.filter(mode="truth").exclude(text__in=APPROVED_NEW_DARES)
+
     def test_the_bank_has_381_truths_and_101_dares(self):
-        truth_mode = Question.objects.filter(mode="truth")
+        truth_mode = self.original()
         self.assertEqual(truth_mode.count(), 482)
         self.assertEqual(truth_mode.filter(kind=TRUTH).count(), 381)
         self.assertEqual(truth_mode.filter(kind=DARE).count(), 101)
@@ -47,7 +54,7 @@ class BankSplitTests(TestCase):
         self.assertTrue(Question.objects.filter(mode="truth", text__startswith="Dare:").exists())
 
     def test_every_kind_matches_the_rule(self):
-        for question in Question.objects.filter(mode="truth"):
+        for question in self.original():
             self.assertEqual(question.kind, classify(question.text), question.pk)
 
 
