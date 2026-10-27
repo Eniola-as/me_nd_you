@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin: 0; padding: 24px 12px; background: #f4f4f5; font-family: Arial, Helvetica, sans-serif; color: #222222">
+    <div style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 28px 24px">
+      <p style="margin: 0 0 20px; font-size: 18px; font-weight: bold; color: #ff4c61">Me &amp; You</p>
+      {% block content %}{% endblock %}
+      <p style="margin: 24px 0 0; font-size: 13px; line-height: 1.5; color: #666666">
+        If the button doesn't work, copy this link into your browser:<br />
+        <span style="word-break: break-all">{{ link }}</span>
+      </p>
+    </div>
+  </body>
+</html>

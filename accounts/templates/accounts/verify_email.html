@@ -1,0 +1,32 @@
+{% extends "accounts/base.html" %}
+{% block title %}Confirm your email{% endblock %}
+{% block content %}
+  <h1>Confirm your email</h1>
+  {% if state == "verified" %}
+    <p>Your email is verified. Thank you!</p>
+    <a class="button" href="/space/">Go to your couple space</a>
+  {% elif state == "invalid" %}
+    <p role="alert">This link has expired or isn't valid. Sign in and use "Resend verification email" on your couple space page to get a new one.</p>
+    <a class="button" href="/space/">Go to your couple space</a>
+  {% else %}
+    <p id="verify-status">Checking your link…</p>
+    <noscript><p>Turn on JavaScript to use this link.</p></noscript>
+    <form id="verify-form" method="post" action="/accounts/verify/">
+      {% csrf_token %}
+      <input type="hidden" name="token" id="verify-token" />
+    </form>
+    <script>
+      // The token is after "#", which the browser never sends to the server.
+      // Drop it from the address bar and history, then post it.
+      const token = location.hash.slice(1);
+      history.replaceState(null, "", location.pathname);
+      if (token) {
+        document.getElementById("verify-token").value = token;
+        document.getElementById("verify-form").submit();
+      } else {
+        document.getElementById("verify-status").textContent =
+          "This link is incomplete. Open the whole link from your email.";
+      }
+    </script>
+  {% endif %}
+{% endblock %}

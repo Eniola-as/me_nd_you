@@ -1,0 +1,6 @@
+{% autoescape off %}Hi {{ user.display_name|default:"there" }}, tap the link below to confirm this is your email. It works for 3 days.
+
+{{ link }}
+
+If you didn't create a Me & You account, you can ignore this email.
+{% endautoescape %}

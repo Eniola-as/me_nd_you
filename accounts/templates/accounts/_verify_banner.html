@@ -1,0 +1,15 @@
+{% if not user.email_verified_at and not request.session.verify_banner_dismissed %}
+  <div class="banner" role="status">
+    <span>Please verify your email. We sent you a link.</span>
+    <form method="post" action="/accounts/verify/resend/">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}" />
+      <button type="submit" class="link-button">Resend verification email</button>
+    </form>
+    <form method="post" action="/accounts/verify/dismiss/">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}" />
+      <button type="submit" class="link-button" aria-label="Dismiss">✕</button>
+    </form>
+  </div>
+{% endif %}

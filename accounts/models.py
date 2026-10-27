@@ -39,6 +39,9 @@ class User(AbstractUser):
     email = models.EmailField("email address", unique=True)
     # What a partner sees. The email is private to its owner (and admins).
     display_name = models.CharField(max_length=40, blank=True, default="")
+    # Set the first time a verification link is used. Verification is a
+    # reminder only: unverified users can use everything.
+    email_verified_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

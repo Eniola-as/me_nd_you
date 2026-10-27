@@ -7,11 +7,17 @@ from django.contrib.auth.views import LoginView
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_http_methods, require_POST
 
 from game.views import ClientRateThrottle
 
+from . import emails
 from .forms import EmailAuthenticationForm, ProfileForm, RegistrationForm
+
+# Session flag: the verification banner was dismissed. Signing in starts a
+# new session, so it comes back on the next sign-in.
+BANNER_DISMISSED = "verify_banner_dismissed"
 
 
 def rate_limited(scope):
@@ -52,6 +58,7 @@ def register(request):
     if request.method == "POST" and form.is_valid():
         user = form.save()
         login(request, user)  # Starts a fresh session (new session key).
+        emails.send_verification_email(request, user)  # A failure doesn't stop sign-up.
         return redirect(_next_url(request))
     return render(request, "accounts/register.html", {"form": form, "next": _next_url(request)})
 
@@ -75,3 +82,42 @@ class EmailLoginView(LoginView):
 
 
 sign_in = rate_limited("account_login")(EmailLoginView.as_view())
+
+
+@ensure_csrf_cookie
+@rate_limited("account_verify_email")
+@require_http_methods(["GET", "POST"])
+def verify_email(request):
+    """Verification links look like /accounts/verify/#<token>. Browsers never
+    send the part after "#"; this page reads it and posts it back. Works
+    without signing in, and doesn't sign anyone in."""
+    if request.method == "GET":
+        return render(request, "accounts/verify_email.html", {"state": "pending"})
+    user = emails.user_for_verification_token(request.POST.get("token", ""))
+    if user is not None:
+        emails.mark_verified(user)
+    return render(request, "accounts/verify_email.html", {"state": "verified" if user else "invalid"})
+
+
+RESEND_MESSAGES = {
+    emails.SENT: (messages.SUCCESS, "We've sent a new link to {email}. It works for 3 days."),
+    emails.COOLDOWN: (messages.INFO, "We just sent you a link. Check your inbox, or try again in a couple of minutes."),
+    emails.ALREADY_VERIFIED: (messages.INFO, "Your email is already verified."),
+    emails.FAILED: (messages.ERROR, "We couldn't send the email just now. Please try again later."),
+}
+
+
+@login_required
+@rate_limited("account_verify_email")
+@require_POST
+def resend_verification(request):
+    level, text = RESEND_MESSAGES[emails.send_verification_email(request, request.user)]
+    messages.add_message(request, level, text.format(email=request.user.email))
+    return redirect(_next_url(request))
+
+
+@login_required
+@require_POST
+def dismiss_verification_banner(request):
+    request.session[BANNER_DISMISSED] = True
+    return redirect(_next_url(request))

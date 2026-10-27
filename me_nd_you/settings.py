@@ -195,6 +195,8 @@ REST_FRAMEWORK = {
         "account_login": "10/min",
         "account_register": "10/min",
         "account_profile": "20/min",
+        # These send mail (provider quota), so they are tighter.
+        "account_verify_email": "5/min",
         "space_action": "30/min",
         "invite_link": "20/min",
     },
@@ -233,6 +235,8 @@ else:
     )
 DEFAULT_FROM_EMAIL_ADDRESS = config("DEFAULT_FROM_EMAIL", default="")
 DEFAULT_FROM_EMAIL = formataddr(("Me & You", DEFAULT_FROM_EMAIL_ADDRESS or "no-reply@localhost"))
+# How long verification links work, in seconds.
+EMAIL_VERIFICATION_TIMEOUT = 3 * 24 * 60 * 60
 
 # Django Channels
 CHANNEL_LAYERS = {

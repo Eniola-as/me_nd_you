@@ -7,6 +7,9 @@ urlpatterns = [
     path("login/", views.sign_in, name="login"),
     path("register/", views.register, name="register"),
     path("profile/", views.profile, name="profile"),
+    path("verify/", views.verify_email, name="verify_email"),
+    path("verify/resend/", views.resend_verification, name="resend_verification"),
+    path("verify/dismiss/", views.dismiss_verification_banner, name="dismiss_verification_banner"),
     # Django's LogoutView only accepts POST, so links can't sign people out.
     path("logout/", LogoutView.as_view(), name="logout"),
 ]
