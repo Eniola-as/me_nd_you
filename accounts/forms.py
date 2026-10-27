@@ -41,6 +41,9 @@ class RegistrationForm(BaseUserCreationForm):
     password2 (length, common passwords, similarity to the email)."""
 
     display_name = DisplayNameField(label="Your name")
+    # The account that already uses the submitted email, if any. The page
+    # doesn't say so; the view emails that account's owner instead.
+    existing_user = None
 
     class Meta:
         model = User
@@ -49,8 +52,12 @@ class RegistrationForm(BaseUserCreationForm):
 
     def clean_email(self):
         email = User.objects.normalize_email(self.cleaned_data["email"])
-        if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("An account with this email already exists. Sign in instead.")
+        self.existing_user = User.objects.filter(email__iexact=email).first()
+        if self.existing_user is not None:
+            raise forms.ValidationError(
+                "We couldn't create an account with these details. "
+                "If you already have one, sign in or reset your password."
+            )
         return email
 
 

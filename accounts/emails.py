@@ -21,6 +21,10 @@ MAX_TOKEN_LENGTH = 500
 # this is counted in the (per-process) cache.
 RESEND_COOLDOWN = 120
 
+# At most one "someone tried to sign up with your email" alert per account
+# per day (per process, like the rest).
+SIGNUP_ALERT_COOLDOWN = 24 * 60 * 60
+
 SENT, COOLDOWN, ALREADY_VERIFIED, FAILED = "sent", "cooldown", "already_verified", "failed"
 
 
@@ -87,3 +91,12 @@ def send_verification_email(request, user):
         logger.exception("Could not send a verification email.")
         return FAILED
     return SENT
+
+
+def send_signup_alert(request, user):
+    """Tell the owner that someone tried to sign up with their email. Sent
+    in the background, and never to deactivated accounts."""
+    if not user.is_active or not cache.add(f"accounts:signup-alert:{user.pk}", True, SIGNUP_ALERT_COOLDOWN):
+        return
+    link = request.build_absolute_uri("/accounts/password/reset/")
+    send_in_background(user, "signup_attempt", {"link": link})

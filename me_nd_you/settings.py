@@ -193,7 +193,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "space_custom_questions": "10/min",
         "account_login": "10/min",
-        "account_register": "10/min",
+        "account_register": "5/min",
         "account_profile": "20/min",
         # These send mail (provider quota), so they are tighter.
         "account_verify_email": "5/min",

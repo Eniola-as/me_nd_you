@@ -1,0 +1,9 @@
+{% extends "accounts/email/base.html" %}
+{% block content %}
+  <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.5">
+    Hi {{ user.display_name|default:"there" }}, someone just tried to create a Me &amp; You account with this email. You already have one, so nothing was created.
+  </p>
+  <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.5">If it was you, sign in, or reset your password if you've forgotten it:</p>
+  <p style="margin: 0 0 20px"><a href="{{ link }}" style="display: inline-block; padding: 12px 22px; background: #ff4c61; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: bold">Reset my password</a></p>
+  <p style="margin: 0; font-size: 15px; line-height: 1.5">If it wasn't you, you can ignore this email; your account is unchanged.</p>
+{% endblock %}

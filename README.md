@@ -175,6 +175,8 @@ Live updates between partners use Channels' in-memory layer, which works within 
 
 Changing an account's email address isn't possible yet.
 
+Signing up with an email that already has an account shows a generic message and emails that account's owner (at most once a day). Because sign-up signs new users in straight away, the page still differs from a successful sign-up, so checking whether an email is registered is slowed (5 attempts per minute per client) and reported to the owner, not prevented.
+
 Verification and password-reset emails are sent from a background thread. If the server restarts mid-send, that email is lost; requesting another one works. Like the rate limits, the one-verification-email-per-2-minutes limit is counted per server process.
 
 Locally, emails are printed in the terminal running the server (no provider needed); copy the link from there.

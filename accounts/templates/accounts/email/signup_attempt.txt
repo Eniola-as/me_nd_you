@@ -1,0 +1,6 @@
+{% autoescape off %}Hi {{ user.display_name|default:"there" }}, someone just tried to create a Me & You account with this email. You already have one, so nothing was created.
+
+If it was you, sign in, or reset your password if you've forgotten it: {{ link }}
+
+If it wasn't you, you can ignore this email; your account is unchanged.
+{% endautoescape %}

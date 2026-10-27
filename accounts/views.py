@@ -65,6 +65,8 @@ def register(request):
         login(request, user)  # Starts a fresh session (new session key).
         emails.send_verification_email(request, user)  # A failure doesn't stop sign-up.
         return redirect(_next_url(request))
+    if form.existing_user is not None:
+        emails.send_signup_alert(request, form.existing_user)
     return render(request, "accounts/register.html", {"form": form, "next": _next_url(request)})
 
 
