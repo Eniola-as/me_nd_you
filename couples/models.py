@@ -15,9 +15,15 @@ class Couple(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Set when a member leaves: the space closes for both. Nothing is deleted;
+    # an admin can reopen it (couples.services.reopen_couple).
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     def __str__(self):
-        return f"Couple {str(self.id)[:8]}"
+        return f"Couple {str(self.id)[:8]}{' (closed)' if self.closed_at else ''}"
 
 
 class MembershipQuerySet(models.QuerySet):

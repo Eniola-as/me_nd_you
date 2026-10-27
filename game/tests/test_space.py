@@ -1,24 +1,18 @@
 """Couple spaces: only a signed-in, active member of a couple can load its
-questions, add to them, or join its game room. Nothing in the request (a
-couple id, an old secret word) grants access by itself."""
+questions or add to them (game rooms: play/tests/test_consumers.py).
+Nothing in the request (a couple id, an old secret word) grants access by
+itself."""
 
-import importlib
-
-from asgiref.sync import async_to_sync
-from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.test import Client, TestCase, TransactionTestCase, override_settings
+from django.test import Client, TestCase
 
-import me_nd_you.asgi
 from couples import services
-from game.consumers import room_group_name, space_group_name
 from game.models import CoupleSession, CustomQuestion
 
 QUESTIONS = "/api/space/questions/questions/"
 ADD = "/api/space/custom-questions/"
-ORIGIN = b"https://me-nd-you.onrender.com"
 
 
 def make_user(email):
@@ -140,77 +134,3 @@ class CustomQuestionOwnerConstraintTests(TestCase):
             with self.subTest(owners=list(owners)):
                 with self.assertRaises(IntegrityError), transaction.atomic():
                     CustomQuestion.objects.create(text="Q?", mode="questions", **owners)
-
-
-class GroupNameSeparationTests(TestCase):
-    def test_space_rooms_cannot_collide_with_secret_word_rooms(self):
-        couple_id = "3f2b2c1e-0000-4000-8000-000000000000"
-        # A legacy secret chosen to mimic a space room must not land in it.
-        for crafted in [f"space:{couple_id}", couple_id, f'["space", "{couple_id}"']:
-            self.assertNotEqual(space_group_name(couple_id, "questions"), room_group_name(crafted, "questions"))
-
-
-@override_settings(ALLOWED_HOSTS=["me-nd-you.onrender.com"])
-class SpaceWebSocketTests(TransactionTestCase):
-    serialized_rollback = True
-
-    def setUp(self):
-        self.couple, self.ann, self.ben = make_couple("ann@example.com", "ben@example.com")
-
-    def cookie_for(self, user):
-        # Logging in touches the database, so do it before the async part.
-        if user is None:
-            return None
-        client = Client()
-        client.force_login(user)
-        return f"sessionid={client.cookies['sessionid'].value}".encode()
-
-    @staticmethod
-    def page(application, cookie=None, mode="questions"):
-        headers = [(b"origin", ORIGIN)]
-        if cookie:
-            headers.append((b"cookie", cookie))
-        return WebsocketCommunicator(application, f"/ws/space/{mode}/", headers=headers)
-
-    def test_partners_share_a_room(self):
-        ann, ben = self.cookie_for(self.ann), self.cookie_for(self.ben)
-
-        async def run():
-            application = importlib.reload(me_nd_you.asgi).application
-            a, b = self.page(application, ann), self.page(application, ben)
-            assert (await a.connect())[0] and (await b.connect())[0]
-            await a.send_json_to({"type": "question", "userId": "page-a", "question": "Ours?"})
-            received = await b.receive_json_from(timeout=1)
-            await a.disconnect()
-            await b.disconnect()
-            return received
-
-        self.assertEqual(async_to_sync(run)()["question"], "Ours?")
-
-    def test_anonymous_and_non_members_are_refused(self):
-        async def run(cookie):
-            application = importlib.reload(me_nd_you.asgi).application
-            page = self.page(application, cookie)
-            connected, _ = await page.connect()
-            if connected:
-                await page.disconnect()
-            return connected
-
-        self.assertFalse(async_to_sync(run)(None))
-        self.assertFalse(async_to_sync(run)(self.cookie_for(make_user("solo@example.com"))))
-
-    def test_other_couples_never_receive_the_messages(self):
-        _, cy, _ = make_couple("cy@example.com", "di@example.com")
-        ours_cookie, theirs_cookie = self.cookie_for(self.ann), self.cookie_for(cy)
-
-        async def run():
-            application = importlib.reload(me_nd_you.asgi).application
-            ours, theirs = self.page(application, ours_cookie), self.page(application, theirs_cookie)
-            assert (await ours.connect())[0] and (await theirs.connect())[0]
-            await ours.send_json_to({"type": "question", "userId": "a", "question": "Private?"})
-            nothing = await theirs.receive_nothing(timeout=0.5)
-            await ours.disconnect()
-            await theirs.disconnect()
-            return nothing
-
-        self.assertTrue(async_to_sync(run)())

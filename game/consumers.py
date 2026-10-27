@@ -68,13 +68,6 @@ def room_group_name(secret, mode):
     return _group_name([secret, mode])
 
 
-def space_group_name(couple_id, mode):
-    """The Channels group for a couple space and game mode. A three-part
-    JSON list can never equal room_group_name's two-part one, so no secret
-    word can be chosen to land in a space's room."""
-    return _group_name(["space", str(couple_id), mode])
-
-
 def _group_name(parts):
     payload = json.dumps(parts).encode()
     digest = hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
@@ -93,17 +86,6 @@ def open_session(secret):
         return False
     session.touch()
     return True
-
-
-@database_sync_to_async
-def space_for(user):
-    """The id of the user's active couple space, or None."""
-    from couples.services import active_couple
-
-    if user is None or not user.is_authenticated:
-        return None
-    couple = active_couple(user)
-    return str(couple.id) if couple else None
 
 
 class GameConsumer(AsyncWebsocketConsumer):
@@ -139,19 +121,3 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     async def relay_message(self, event):
         await self.send(text_data=json.dumps(event["message"]))
-
-
-class SpaceGameConsumer(GameConsumer):
-    """The game room of the signed-in user's couple space. Access comes from
-    the session (Channels' auth middleware) and an active membership,
-    checked when connecting; nothing in the URL grants it."""
-
-    async def connect(self):
-        couple_id = await space_for(self.scope.get("user"))
-        if couple_id is None:
-            await self.close()
-            return
-        mode = self.scope["url_route"]["kwargs"]["mode"]
-        self.room_group_name = space_group_name(couple_id, mode)
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept()

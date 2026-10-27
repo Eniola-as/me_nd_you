@@ -59,5 +59,11 @@ def _handle_action(request):
             messages.success(request, "You've joined your partner's couple space.")
         elif action == "dismiss_invite":
             request.session.pop(PENDING_INVITE, None)
+        elif action == "leave_couple":
+            if request.POST.get("confirm") != "yes":
+                messages.error(request, "Tick the box to confirm that you want to close this space.")
+            else:
+                services.close_couple(user)
+                messages.success(request, "You left. The couple space is closed for both of you.")
     except services.InvitationError as error:
         messages.error(request, str(error))

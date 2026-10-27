@@ -5,8 +5,15 @@ import hashlib
 import secrets
 from datetime import timedelta
 
+from functools import partial
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+
+from play.groups import room_group_name
+from play.models import GameRoom
 
 from .models import MEMBER_SLOTS, Couple, Invitation, Membership
 
@@ -123,7 +130,7 @@ def redeem_invitation(user, raw_token):
         invitation = (
             Invitation.objects.select_for_update().filter(token_hash=hash_token(raw_token)).first()
         )
-        if invitation is None or not invitation.is_usable(now):
+        if invitation is None or not invitation.is_usable(now) or invitation.couple.closed_at:
             raise InvalidInvitation()
         if active_membership(user):
             raise AlreadyInCouple()
@@ -151,6 +158,56 @@ def redeem_invitation(user, raw_token):
             # so the invitation stays usable.
             raise (AlreadyInCouple() if active_membership(user) else CoupleFull()) from None
     return couple
+
+
+def close_couple(user):
+    """Leave the couple: it closes for both members. Both memberships end,
+    pending invitations are revoked and game rooms close, in one
+    transaction; open game connections are told only after it commits.
+    Nothing is deleted."""
+    now = timezone.now()
+    with transaction.atomic():
+        membership = active_membership(user)
+        if membership is None:
+            raise NotInCouple()
+        couple = Couple.objects.select_for_update().get(pk=membership.couple_id)
+        couple.closed_at, couple.closed_by = now, user
+        couple.save(update_fields=["closed_at", "closed_by"])
+        Membership.objects.active().filter(couple=couple).update(left_at=now)
+        _pending(couple).update(revoked_at=now)
+        rooms = GameRoom.objects.filter(couple=couple, status=GameRoom.ACTIVE)
+        room_ids = list(rooms.values_list("pk", flat=True))
+        rooms.update(status=GameRoom.CLOSED)
+        for room_id in room_ids:
+            transaction.on_commit(partial(notify_room_closed, room_id))
+    return couple
+
+
+def reopen_couple(couple):
+    """Admin recovery: reopen a closed couple and restore the memberships
+    that the closure ended, except for anyone now in another couple.
+    Returns the users restored. Game rooms start fresh when next played;
+    custom questions were never removed."""
+    with transaction.atomic():
+        couple = Couple.objects.select_for_update().get(pk=couple.pk)
+        if couple.closed_at is None:
+            return []
+        restored = []
+        for membership in Membership.objects.filter(couple=couple, left_at=couple.closed_at).select_related("user"):
+            if Membership.objects.active().filter(user=membership.user).exists():
+                continue  # Joined another couple since; leave them there.
+            membership.left_at = None
+            membership.save(update_fields=["left_at"])
+            restored.append(membership.user)
+        couple.closed_at, couple.closed_by = None, None
+        couple.save(update_fields=["closed_at", "closed_by"])
+    return restored
+
+
+def notify_room_closed(room_id):
+    layer = get_channel_layer()
+    if layer is not None:
+        async_to_sync(layer.group_send)(room_group_name(room_id), {"type": "room.closed"})
 
 
 def _pending(couple):

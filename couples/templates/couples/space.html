@@ -49,6 +49,21 @@
       </form>
     {% endif %}
     <a class="button" href="/modes/">Play together</a>
+
+    <details>
+      <summary class="links">Leave this couple space</summary>
+      <p>
+        Leaving closes this space for both of you: both of you lose access to it,
+        its games and its custom questions, straight away and on every device.
+        Nothing is deleted, but neither of you can reopen it yourselves.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <label><input type="checkbox" name="confirm" value="yes" required style="width: auto" />
+          I understand that both of us lose access</label>
+        <button type="submit" name="action" value="leave_couple" class="secondary">Leave and close the space</button>
+      </form>
+    </details>
   {% endif %}
 
   <form method="post" action="/accounts/logout/">

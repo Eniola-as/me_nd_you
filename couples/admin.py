@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from . import services
 from .models import Couple, Invitation, Membership
 
 
@@ -12,9 +13,17 @@ class MembershipInline(admin.TabularInline):
 
 @admin.register(Couple)
 class CoupleAdmin(admin.ModelAdmin):
-    list_display = ["__str__", "created_at"]
-    readonly_fields = ["id", "created_at"]
+    list_display = ["__str__", "created_at", "closed_at"]
+    readonly_fields = ["id", "created_at", "closed_at", "closed_by"]
     inlines = [MembershipInline]
+    actions = ["reopen_couples"]
+
+    @admin.action(description="Reopen selected closed couples")
+    def reopen_couples(self, request, queryset):
+        for couple in queryset:
+            restored = services.reopen_couple(couple)
+            names = ", ".join(u.email for u in restored) or "nobody (both are in other couples)"
+            self.message_user(request, f"{couple}: reopened; restored {names}.")
 
 
 @admin.register(Invitation)
