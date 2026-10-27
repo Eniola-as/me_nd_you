@@ -14,6 +14,8 @@ from django.utils import timezone
 import me_nd_you.asgi
 from couples import services as couples
 from couples.models import Membership
+from game.models import CustomQuestion
+from play import services
 from play.models import GameRoom
 
 ORIGIN = b"https://me-nd-you.onrender.com"
@@ -248,22 +250,81 @@ class RoomSocketTests(TransactionTestCase):
         self.assertEqual({r["reason"] for r in replies}, {"invalid"})
         self.assertEqual(final["version"], start["version"] + 1)
 
+    async def everything(self, page, timeout=1):
+        """Every message waiting on this connection, in order."""
+        messages = []
+        while not await page.receive_nothing(timeout=timeout):
+            messages.append(await page.receive_json_from(timeout=timeout))
+        return messages
+
     def test_hidden_answers_never_reach_the_partner_early(self):
+        """Every message Ben's connection receives before the reveal is
+        recorded: broadcasts, an answer change, a retried request, a sync,
+        a stale action's reply, a new custom question and a reconnect. None
+        may contain Ann's answer; after Ben answers, it arrives."""
+        path = "/ws/room/answer_reveal/questions/"
+        secrets = ["Ann's secret answer", "Ann's changed secret"]
+
+        async def scenario(app):
+            (a, sa), (b, sb) = await self.open(app, "ann", path), await self.open(app, "ben", path)
+            ben_saw = [sb]
+            card = sa["state"]["current"]["key"]
+            first = action("answer", sa["version"], payload={"text": secrets[0], "card": card})
+            await a.send_json_to(first)
+            ben_saw += await self.everything(b)
+            await a.send_json_to(action("answer", sa["version"] + 1, payload={"text": secrets[1], "card": card}))
+            ben_saw += await self.everything(b)
+            await a.send_json_to(first)  # A retry of an applied request.
+            ben_saw += await self.everything(b)
+            await b.send_json_to({"type": "sync"})
+            ben_saw += await self.everything(b)
+            await b.send_json_to(action("answer", sa["version"], payload={"text": "Too late", "card": card}))
+            ben_saw += await self.everything(b)  # "stale", then the current state.
+            await asyncio.get_running_loop().run_in_executor(None, lambda: services.add_custom_card(
+                CustomQuestion.objects.create(space=self.couple, text="Ours?", mode="questions")))
+            ben_saw += await self.everything(b)
+            await b.disconnect()
+            b, again = await self.open(app, "ben", path)
+            ben_saw.append(again)
+            before_reveal = list(ben_saw)
+            await b.send_json_to(action("answer", again["version"], payload={"text": "Ben's answer", "card": card}))
+            after = await self.everything(b)
+            await self.everything(a)
+            await a.disconnect(); await b.disconnect()
+            return before_reveal, after
+
+        before_reveal, after = self.run_async(scenario)
+        kinds = [m["type"] for m in before_reveal]
+        self.assertGreaterEqual(kinds.count("state"), 6)
+        self.assertIn("error", kinds)  # The stale reply was among them.
+        for secret in secrets:
+            self.assertNotIn(secret, str(before_reveal))
+        last = [m for m in before_reveal if m["type"] == "state"][-1]
+        self.assertTrue(last["state"]["partner_answered"])
+        self.assertIsNone(last["state"]["partner_answer"])
+        revealed = [m for m in after if m["type"] == "state"][-1]
+        self.assertEqual(revealed["state"]["phase"], "revealed")
+        self.assertEqual(revealed["state"]["partner_answer"], "Ann's changed secret")
+        self.assertNotIn("Ann's secret answer", str(after))
+
+    def test_a_lone_answer_skipped_with_next_never_reaches_the_partner(self):
         path = "/ws/room/answer_reveal/questions/"
 
         async def scenario(app):
-            (a, sa), (b, _) = await self.open(app, "ann", path), await self.open(app, "ben", path)
-            await a.send_json_to(action("answer", sa["version"], payload={"text": "Ann's secret answer"}))
-            b_before, _ = await self.latest_state(b)
-            await b.send_json_to(action("answer", sa["version"] + 1, payload={"text": "Ben's answer"}))
-            b_after, _ = await self.latest_state(b)
+            (a, sa), (b, sb) = await self.open(app, "ann", path), await self.open(app, "ben", path)
+            card = sa["state"]["current"]["key"]
+            await a.send_json_to(action("answer", sa["version"], payload={"text": "Never shown", "card": card}))
+            ben_saw = [sb] + await self.everything(b)
+            await b.send_json_to(action("next", sa["version"] + 1))
+            ben_saw += await self.everything(b)
             await a.disconnect(); await b.disconnect()
-            return b_before, b_after
+            return ben_saw
 
-        b_before, b_after = self.run_async(scenario)
-        self.assertNotIn("Ann's secret answer", str(b_before))
-        self.assertTrue(b_before["state"]["partner_answered"])
-        self.assertEqual(b_after["state"]["partner_answer"], "Ann's secret answer")
+        ben_saw = self.run_async(scenario)
+        self.assertNotIn("Never shown", str(ben_saw))
+        final = ben_saw[-1]["state"]
+        self.assertEqual((final["phase"], final["partner_answered"]), ("answering", False))
+        self.assertNotIn("Never shown", str(GameRoom.objects.get().state))
 
     def test_truth_or_dare_turns_over_the_socket(self):
         path = "/ws/room/truth_or_dare/truth/"

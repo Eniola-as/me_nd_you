@@ -12,6 +12,7 @@ from channels.layers import get_channel_layer
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from play.games import get_game
 from play.groups import room_group_name
 from play.models import GameRoom
 
@@ -177,6 +178,12 @@ def close_couple(user):
         _pending(couple).update(revoked_at=now)
         rooms = GameRoom.objects.filter(couple=couple, status=GameRoom.ACTIVE)
         room_ids = list(rooms.values_list("pk", flat=True))
+        # Private answers are never kept, not even for admin recovery.
+        for room in rooms.select_for_update():
+            game = get_game(room.game)
+            if hasattr(game, "forget_answers"):
+                room.state = game.forget_answers(room.state)
+                room.save(update_fields=["state"])
         rooms.update(status=GameRoom.CLOSED)
         for room_id in room_ids:
             transaction.on_commit(partial(notify_room_closed, room_id))

@@ -141,21 +141,77 @@ class HiddenAnswerTests(TestCase):
         self.couple, (self.ann, self.ben) = make_couple("ann@example.com", "ben@example.com")
         self.room = services.room_for(self.ann, "answer_reveal", "questions")
 
-    def answer(self, user, text):
+    def act(self, user, action, payload=None):
         room = GameRoom.objects.get(pk=self.room.pk)
-        return services.apply_action(user, room.id, "answer", expected_version=room.version,
-                                     request_id=str(uuid.uuid4()), payload={"text": text})
+        return services.apply_action(user, room.id, action, expected_version=room.version,
+                                     request_id=str(uuid.uuid4()), payload=payload)
+
+    def answer(self, user, text):
+        card = GameRoom.objects.get(pk=self.room.pk).state["current"]["key"]
+        return self.act(user, "answer", {"text": text, "card": card})
+
+    def stored(self):
+        """Everything the database holds for this room: state and history."""
+        room = GameRoom.objects.get(pk=self.room.pk)
+        return str(room.state) + str(list(RoomEvent.objects.filter(room=room).values_list("payload", flat=True)))
 
     def test_partner_never_receives_an_unrevealed_answer(self):
         room = self.answer(self.ann, "Only Ann knows this")
         self.assertNotIn("Only Ann knows this", str(services.snapshot(room, self.ben)))
         self.assertIn("Only Ann knows this", str(services.snapshot(room, self.ann)))
 
+    def test_the_partner_sees_who_has_answered_by_name(self):
+        self.ann.display_name = "Ann"
+        self.ann.save()
+        room = self.answer(self.ann, "Mine")
+        snap = services.snapshot(room, self.ben)
+        self.assertTrue(snap["state"]["partner_answered"])
+        self.assertEqual(snap["names"]["partner"], "Ann")
+
     def test_both_answers_are_shared_after_both_answer(self):
         self.answer(self.ann, "Ann's answer")
         room = self.answer(self.ben, "Ben's answer")
         self.assertIn("Ann's answer", str(services.snapshot(room, self.ben)))
         self.assertIn("Ben's answer", str(services.snapshot(room, self.ann)))
+
+    def test_history_never_stores_answer_text(self):
+        self.answer(self.ann, "Ann's answer")
+        self.answer(self.ben, "Ben's answer")
+        payloads = str(list(RoomEvent.objects.values_list("payload", flat=True)))
+        self.assertNotIn("Ann's answer", payloads)
+        self.assertNotIn("Ben's answer", payloads)
+
+    def test_next_deletes_a_lone_answer_from_the_database(self):
+        self.answer(self.ann, "Unrevealed")
+        self.act(self.ben, "next")
+        self.assertNotIn("Unrevealed", self.stored())
+
+    def test_next_and_reset_delete_revealed_answers_from_the_database(self):
+        for action in ["next", "reset"]:
+            with self.subTest(action):
+                self.answer(self.ann, f"Ann zq-marker {action}")
+                self.answer(self.ben, f"Ben zq-marker {action}")
+                self.act(self.ann, action)
+                self.assertNotIn("zq-marker", self.stored())
+
+    def test_an_answer_waits_on_the_server_for_its_author(self):
+        self.answer(self.ann, "Still here")
+        room = GameRoom.objects.get(pk=self.room.pk)  # As on a reconnect.
+        self.assertEqual(services.snapshot(room, self.ann)["state"]["my_answer"], "Still here")
+
+    def test_closing_the_couple_deletes_answers_and_keeps_the_rest(self):
+        self.act(self.ann, "next")
+        self.answer(self.ann, "Ann's pending answer")
+        before = GameRoom.objects.get(pk=self.room.pk).state
+        couples.close_couple(self.ben)
+        room = GameRoom.objects.get(pk=self.room.pk)
+        self.assertEqual(room.status, GameRoom.CLOSED)
+        self.assertNotIn("pending answer", self.stored())
+        self.assertEqual((room.state["deck"], room.state["position"]), (before["deck"], before["position"]))
+
+    def test_it_only_runs_questions_mode(self):
+        with self.assertRaises(services.Invalid):
+            services.room_for(self.ann, "answer_reveal", "spicy")
 
 
 @skipUnless(connection.vendor == "postgresql", "Real concurrency needs PostgreSQL.")

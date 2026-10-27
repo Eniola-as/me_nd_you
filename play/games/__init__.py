@@ -106,10 +106,14 @@ class QuestionsGame:
 
 
 class AnswerRevealGame(QuestionsGame):
-    """Both partners answer the same card privately; neither answer is shown
-    to the other until both have answered. Then Next moves on."""
+    """Questions mode. Each partner may answer the card privately; neither
+    answer is sent to the other until both have answered. Answering is
+    optional: Next works at any time. Next, Reset and closing the couple
+    delete the card's answers, revealed or not, so none are kept."""
 
     key = "answer_reveal"
+    variants = {"questions"}
+    shows_names = True  # "<name> has answered".
     MAX_ANSWER = 500
 
     def start(self, cards, seed):
@@ -119,9 +123,7 @@ class AnswerRevealGame(QuestionsGame):
         if action == "answer":
             return self._answer(state, actor_slot, payload or {})
         if action == "next":
-            if state["phase"] != "revealed":
-                raise ActionInvalid("Both of you answer first.")
-            return dict(super()._next(state, cards), phase="answering", answers={})
+            return self.forget_answers(super()._next(state, cards))
         return super().apply(state, action, actor_slot, cards, payload, seed)
 
     def view(self, state, viewer_slot):
@@ -136,8 +138,17 @@ class AnswerRevealGame(QuestionsGame):
             partner_answer=state["answers"].get(theirs) if revealed else None,
         )
 
+    @staticmethod
+    def forget_answers(state):
+        return dict(state, answers={}, phase="answering")
+
     def _answer(self, state, actor_slot, payload):
-        if state["phase"] != "answering" or state["finished"]:
+        if state["finished"] or state["current"] is None:
+            raise ActionInvalid("There's no card to answer.")
+        if payload.get("card") != state["current"]["key"]:
+            # Sent for a card that has moved on (the partner pressed Next).
+            raise ActionInvalid("That card has moved on.")
+        if state["phase"] != "answering":
             raise ActionInvalid("Answers are already revealed.")
         text = payload.get("text")
         if not isinstance(text, str) or not text.strip() or len(text.strip()) > self.MAX_ANSWER:
