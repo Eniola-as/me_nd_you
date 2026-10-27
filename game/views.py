@@ -15,6 +15,7 @@ from play.services import add_custom_card
 
 from .models import CustomQuestion
 from .serializers import QuestionInputSerializer
+from .truth_or_dare import MODE as TRUTH_OR_DARE, classify
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,10 @@ def add_space_custom_question(request):
         logger.warning("Invalid space question; fields: %s", sorted(serializer.errors))
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     data = serializer.validated_data
-    question = CustomQuestion.objects.create(space=couple, text=data["text"], mode=data["mode"])
+    kind = ""
+    if data["mode"] == TRUTH_OR_DARE:
+        kind = data.get("kind") or classify(data["text"])
+    question = CustomQuestion.objects.create(space=couple, text=data["text"], mode=data["mode"], kind=kind)
     # Server-authoritative rooms get it too, so both partners see it once.
     add_custom_card(question)
     return Response(

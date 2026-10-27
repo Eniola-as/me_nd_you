@@ -33,7 +33,7 @@ class RoomSetupTests(TestCase):
         self.assertEqual(room.version, 1)
 
     def test_deck_uses_the_mode_and_the_couples_own_questions(self):
-        CustomQuestion.objects.create(space=self.couple, text="Ours?", mode="truth")
+        CustomQuestion.objects.create(space=self.couple, text="Ours?", mode="truth", kind="truth")
         room = services.room_for(self.ann, "questions", "truth")
         self.assertEqual(len(room.state["deck"]), Question.objects.filter(mode="truth").count() + 1)
 

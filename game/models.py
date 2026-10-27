@@ -1,5 +1,13 @@
 from django.db import models
 
+from .truth_or_dare import KINDS, MODE as TRUTH_OR_DARE
+
+# Truth or Dare questions are truths or dares; no other mode has a kind.
+KIND_MATCHES_MODE = (
+    models.Q(mode=TRUTH_OR_DARE, kind__in=[value for value, _ in KINDS])
+    | (~models.Q(mode=TRUTH_OR_DARE) & models.Q(kind=""))
+)
+
 
 # Admin-added questions
 class Question(models.Model):
@@ -13,9 +21,15 @@ class Question(models.Model):
     ]
     text = models.TextField()
     mode = models.CharField(max_length=20, choices=MODES)
+    kind = models.CharField(max_length=5, choices=KINDS, blank=True, default="")
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=KIND_MATCHES_MODE, name="game_question_kind_matches_mode"),
+        ]
 
     def __str__(self):
-        return f"[{self.mode}] {self.text[:50]}"
+        return f"[{self.mode}{'/' + self.kind if self.kind else ''}] {self.text[:50]}"
 
 
 # Questions a couple adds to their own space
@@ -25,7 +39,13 @@ class CustomQuestion(models.Model):
     )
     text = models.TextField()
     mode = models.CharField(max_length=20, choices=Question.MODES)
+    kind = models.CharField(max_length=5, choices=KINDS, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=KIND_MATCHES_MODE, name="game_customquestion_kind_matches_mode"),
+        ]
 
     def __str__(self):
         return f"Custom in {self.space}: {self.text[:50]}"
