@@ -89,3 +89,39 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f"Invitation to {self.couple}"
+
+
+class LegacyLink(models.Model):
+    """A secret-word couple brought into a couple space (couples.legacy).
+    Its custom questions show in the space; nothing is copied or deleted.
+    PROTECT keeps either record from being deleted while linked."""
+
+    legacy = models.ForeignKey("game.CoupleSession", on_delete=models.PROTECT, related_name="space_links")
+    couple = models.ForeignKey(Couple, on_delete=models.PROTECT, related_name="legacy_links")
+    claimed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    claimed_at = models.DateTimeField(auto_now_add=True)
+    # Members who confirmed they have moved over to their accounts.
+    ready = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="+")
+    # Set when both members are ready: the secret word stops working then,
+    # if the move is still complete.
+    retire_at = models.DateTimeField(null=True, blank=True)
+    retired_at = models.DateTimeField(null=True, blank=True)
+    # The deadline passed but the move was not complete: the secret word
+    # keeps working until an admin looks at it.
+    needs_resolution_at = models.DateTimeField(null=True, blank=True)
+    unlinked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["legacy"], condition=Q(unlinked_at__isnull=True), name="couples_legacy_linked_once"
+            ),
+            models.UniqueConstraint(
+                fields=["couple"], condition=Q(unlinked_at__isnull=True), name="couples_space_links_one_legacy"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.legacy} → {self.couple}"

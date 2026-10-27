@@ -197,6 +197,7 @@ REST_FRAMEWORK = {
         "account_register": "10/min",
         "account_profile": "20/min",
         "space_action": "30/min",
+        "legacy_claim": "5/min",
     },
     # How many proxies in front of the app append to X-Forwarded-For. Rate
     # limits identify clients by the address the last trusted proxy added;

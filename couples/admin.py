@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from . import services
-from .models import Couple, Invitation, Membership
+from . import legacy, services
+from .models import Couple, Invitation, LegacyLink, Membership
 
 
 class MembershipInline(admin.TabularInline):
@@ -24,6 +24,33 @@ class CoupleAdmin(admin.ModelAdmin):
             restored = services.reopen_couple(couple)
             names = ", ".join(u.email for u in restored) or "nobody (both are in other couples)"
             self.message_user(request, f"{couple}: reopened; restored {names}.")
+
+
+@admin.register(LegacyLink)
+class LegacyLinkAdmin(admin.ModelAdmin):
+    # Links change only through the app and these actions, never by hand.
+    list_display = ["__str__", "claimed_at", "retire_at", "retired_at", "needs_resolution_at", "unlinked_at"]
+    list_filter = [("needs_resolution_at", admin.EmptyFieldListFilter), ("retired_at", admin.EmptyFieldListFilter)]
+    readonly_fields = [f.name for f in LegacyLink._meta.fields] + ["ready"]
+    actions = ["clear_retirements", "unlink_links"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.action(description="Clear the retirement (the secret word works again)")
+    def clear_retirements(self, request, queryset):
+        for link in queryset:
+            legacy.clear_retirement(link)
+        self.message_user(request, f"Cleared {queryset.count()} link(s).")
+
+    @admin.action(description="Unlink (undo the claim; nothing is deleted)")
+    def unlink_links(self, request, queryset):
+        for link in queryset.filter(unlinked_at__isnull=True):
+            legacy.unlink(link)
+        self.message_user(request, "Unlinked.")
 
 
 @admin.register(Invitation)

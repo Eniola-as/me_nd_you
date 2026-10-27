@@ -50,6 +50,43 @@
     {% endif %}
     <a class="button" href="/modes/">Play together</a>
 
+    {% if legacy_link %}
+      <h2>Your secret-word couple</h2>
+      <p><strong>{{ legacy_link.legacy }}</strong> is linked to this space, so its questions are here too.</p>
+      {% if legacy_link.retired_at %}
+        <p>The secret word no longer works. You play here now.</p>
+      {% elif legacy_link.needs_resolution_at %}
+        <p>The secret word still works: the move wasn't complete when the waiting period ended, so nothing was switched off.</p>
+      {% elif legacy_link.retire_at %}
+        <p>You've both confirmed. The secret word stops working on {{ legacy_link.retire_at|date:"j F Y" }}; until then it still works.</p>
+      {% else %}
+        <p>Once you've both moved over, each of you confirm below. The secret word keeps working for {{ grace_days }} days after you both confirm, then stops.</p>
+      {% endif %}
+      {% for name in ready_names %}<p class="help-text">{{ name }} is ready.</p>{% endfor %}
+      {% if not legacy_link.retired_at %}
+        <form method="post">
+          {% csrf_token %}
+          {% if user_ready %}
+            <button type="submit" name="action" value="withdraw_ready" class="secondary">Not yet: keep the secret word</button>
+          {% else %}
+            <button type="submit" name="action" value="mark_ready">We've moved over</button>
+          {% endif %}
+        </form>
+      {% endif %}
+    {% else %}
+      <details>
+        <summary class="links">Played with a secret word before? Bring that couple here</summary>
+        <p>Enter the two names and the secret word you used. Its custom questions will show up in this space. Nothing is copied or deleted, and the secret word keeps working for now.</p>
+        <form method="post">
+          {% csrf_token %}
+          <label>First name <input name="partner1_name" maxlength="100" required /></label>
+          <label>Second name <input name="partner2_name" maxlength="100" required /></label>
+          <label>Secret word <input name="secret_word" type="password" maxlength="100" required autocomplete="off" /></label>
+          <button type="submit" name="action" value="claim_legacy">Bring it over</button>
+        </form>
+      </details>
+    {% endif %}
+
     <details>
       <summary class="links">Leave this couple space</summary>
       <p>

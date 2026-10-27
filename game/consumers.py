@@ -108,6 +108,10 @@ class GameConsumer(AsyncWebsocketConsumer):
         if len(text_data) > MAX_MESSAGE_CHARS:
             await self.close(code=1009)  # 1009: message too big
             return
+        # The couple may have moved to accounts since this connection opened.
+        if not await open_session(self.scope["url_route"]["kwargs"]["room_name"]):
+            await self.close(code=4403)
+            return
         message = parse_message(text_data)
         if message is None:
             # Tell only the sender; keep the connection open.

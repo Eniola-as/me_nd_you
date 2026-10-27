@@ -44,6 +44,19 @@
         margin-bottom: 40px;
       }
 
+      .legacy-notice {
+        max-width: 480px;
+        margin: 0 auto 32px;
+        padding: 14px 18px;
+        border-radius: 12px;
+        background: rgba(255, 76, 97, 0.12);
+        line-height: 1.5;
+      }
+
+      .legacy-notice a {
+        color: #ff4c61;
+      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -89,6 +102,27 @@
   </head>
   <body>
     <h2>Select a Game Mode</h2>
+    {% if legacy_notice %}
+      <p class="legacy-notice" role="status">
+        {% if legacy_notice.kind == "move" %}
+          New: each of you can have your own account and keep your custom
+          questions. <a href="/accounts/register/">Create an account</a>, start a
+          couple space, then bring this couple over from your space page.
+        {% elif legacy_notice.kind == "linked" %}
+          This couple is linked to a couple space.
+          <a href="/accounts/login/">Sign in</a> to play there. When you've both
+          confirmed on your space page, the secret word stops working
+          {{ grace_days }} days later.
+        {% elif legacy_notice.kind == "retiring" %}
+          You've moved to accounts. This secret word stops working on
+          {{ legacy_notice.date|date:"j F Y" }}.
+          <a href="/accounts/login/">Sign in</a> to play in your couple space.
+        {% else %}
+          This couple has moved to accounts, so the secret word no longer
+          works. <a href="/accounts/login/">Sign in</a> to play.
+        {% endif %}
+      </p>
+    {% endif %}
 
     <div class="grid">
       <button type="button" class="mode-card" data-mode="questions">
