@@ -236,3 +236,14 @@ class BannerTests(VerificationTestCase):
         self.assertEqual(self.client.get("/accounts/verify/dismiss/").status_code, 405)
         self.client.logout()
         self.assertEqual(self.client.post("/accounts/verify/dismiss/").status_code, 302)
+
+
+class EmailLayoutTests(TestCase):
+    def test_every_account_email_fits_a_phone_screen(self):
+        user = get_user_model()(email="ann@example.com", display_name="Ann")
+        for template in ["verify", "password_reset", "signup_attempt"]:
+            emails.send_account_email(user, template, {"link": "http://testserver/x/"})
+        for message in mail.outbox:
+            (html, _), = message.alternatives
+            with self.subTest(message.subject):
+                self.assertIn('<meta name="viewport" content="width=device-width, initial-scale=1" />', html)
