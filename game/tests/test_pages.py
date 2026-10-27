@@ -119,3 +119,41 @@ class TruthOrDarePageTests(TestCase):
     def test_custom_questions_say_whether_they_are_a_truth_or_a_dare(self):
         self.assertIn('name="new-kind"', self.html)
         self.assertIn("kind: selectedKind()", self.html)
+
+
+class QuestionsAnswerPageTests(TestCase):
+    """Questions mode: private answers with a simultaneous reveal, on the
+    answer-reveal room. Other modes keep the shared Next deck."""
+
+    def setUp(self):
+        self.ann = make_user("ann@example.com")
+        services.create_couple(self.ann)
+        self.client = signed_in(self.ann)
+        self.html = self.client.get("/play/?mode=questions").content.decode()
+
+    def test_questions_mode_uses_the_answer_reveal_room(self):
+        self.assertIn('mode === "questions" ? "answer_reveal"', self.html)
+
+    def test_it_has_an_answer_box_limited_to_500_characters(self):
+        self.assertIn('id="answer-panel"', self.html)
+        self.assertRegex(self.html, r'<textarea[^>]*id="answer-text"[^>]*maxlength="500"')
+        self.assertIn('id="answerBtn"', self.html)
+
+    def test_an_answer_names_the_card_it_is_for(self):
+        self.assertIn('room.act("answer", { text, card: answerCard })', self.html)
+
+    def test_it_says_when_the_partner_has_answered_and_shows_the_reveal(self):
+        self.assertIn("has answered", self.html)
+        self.assertIn("Waiting for", self.html)
+        for element in ['id="reveal"', 'id="reveal-mine"', 'id="reveal-partner"', 'id="reveal-partner-name"']:
+            self.assertIn(element, self.html)
+        # The reveal box is a grid, which would override the hidden attribute.
+        self.assertIn("#reveal[hidden]", self.html)
+
+    def test_next_and_the_rest_stay(self):
+        for button in ['id="nextBtn"', 'id="addBtn"', 'id="resetBtn"', 'id="switchBtn"']:
+            self.assertIn(button, self.html)
+
+    def test_the_mode_menu_explains_it(self):
+        page = self.client.get("/modes/").content.decode()
+        self.assertEqual(page.count("Answer privately, reveal together"), 1)

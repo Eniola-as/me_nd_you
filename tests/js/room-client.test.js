@@ -109,3 +109,11 @@ test("ignores anything that isn't a state or an error", () => {
   socket().receive({ type: "state", version: "7" });
   assert.equal(states.length + errors.length, 0);
 });
+
+test("act returns the request id it sent, so a page can match replies", () => {
+  const { room, socket } = setup();
+  socket().receive(state(1));
+  const id = room.act("answer", { text: "Mine" });
+  assert.equal(id, "req-1");
+  assert.equal(socket().sent[0].requestId, id);
+});

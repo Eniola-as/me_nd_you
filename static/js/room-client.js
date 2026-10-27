@@ -45,6 +45,7 @@
       const message = { type: "action", action, expectedVersion: version, requestId: newRequestId() };
       if (payload !== undefined) message.payload = payload;
       socket.send(message);
+      return message.requestId;
     }
 
     return {

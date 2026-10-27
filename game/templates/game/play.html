@@ -219,6 +219,68 @@
         margin: 10px 0 0;
         color: #ddd;
       }
+      /* Questions mode: private answers, revealed when both have answered. */
+      #answer-panel {
+        width: 90%;
+        max-width: 400px;
+        margin-top: 20px;
+      }
+      #answer-panel label {
+        display: block;
+        font-size: 14px;
+        color: #ddd;
+        margin-bottom: 6px;
+      }
+      #answer-text {
+        width: 100%;
+        padding: 10px;
+        border-radius: 10px;
+        font: inherit;
+        font-size: 16px;
+        border: none;
+        resize: vertical;
+        min-height: 70px;
+      }
+      .answer-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      #answer-count {
+        flex: 1;
+        font-size: 13px;
+        color: #aaa;
+      }
+      #answer-status {
+        min-height: 1.4em;
+        margin: 8px 0 0;
+        color: #ddd;
+      }
+      #reveal {
+        display: grid;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      #reveal[hidden] {
+        display: none;
+      }
+      .answer-box {
+        background: var(--glass);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+      .answer-box h3 {
+        margin: 0 0 6px;
+        font-size: 14px;
+        color: var(--accent);
+      }
+      .answer-box p {
+        margin: 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
       .visually-hidden {
         position: absolute;
         width: 1px;
@@ -248,6 +310,22 @@
     </button>
     <p id="flip-hint" class="visually-hidden">Tap the card to flip it.</p>
     <p id="card-status" class="visually-hidden" role="status"></p>
+
+    <section id="answer-panel" aria-label="Your answers" hidden>
+      <form id="answer-form">
+        <label for="answer-text">Your answer. Your partner sees it once you've both answered.</label>
+        <textarea id="answer-text" maxlength="500" rows="3" placeholder="Type your answer..."></textarea>
+        <div class="answer-row">
+          <span id="answer-count" aria-live="off">0/500</span>
+          <button type="submit" id="answerBtn">Save answer</button>
+        </div>
+      </form>
+      <p id="answer-status" role="status"></p>
+      <div id="reveal" hidden>
+        <div class="answer-box"><h3>You</h3><p id="reveal-mine"></p></div>
+        <div class="answer-box"><h3 id="reveal-partner-name">Your partner</h3><p id="reveal-partner"></p></div>
+      </div>
+    </section>
 
     <div class="buttons">
       <button type="button" id="nextBtn">Next Question</button>
@@ -309,9 +387,11 @@
     <script>
       const params = new URLSearchParams(window.location.search);
       const mode = params.get("mode");
-      // Truth or Dare plays in turns on its own room; other modes share a deck.
+      // Truth or Dare plays in turns on its own room; Questions mode adds
+      // private answers with a reveal; the other modes share a plain deck.
       const turnBased = mode === "truth";
-      const game = turnBased ? "truth_or_dare" : "questions";
+      const answering = mode === "questions";
+      const game = turnBased ? "truth_or_dare" : mode === "questions" ? "answer_reveal" : "questions";
 
       function csrfToken() {
         const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
@@ -396,9 +476,13 @@
       let shownKey = null;
       const room = createRoomClient({
         url: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/room/${game}/${encodeURIComponent(mode)}/`,
-        onState: turnBased ? renderTurns : renderRoomState,
+        onState: turnBased ? renderTurns : answering ? renderAnswers : renderRoomState,
         onError(error) {
-          if (error.reason === "forbidden") {
+          if (error.reason === "stale" && pendingAnswer && error.requestId === pendingAnswer.id) {
+            // The partner acted at the same moment; resend once the current
+            // state arrives, if it's still the same card.
+            pendingAnswer.stale = true;
+          } else if (error.reason === "forbidden") {
             showFeedback("You no longer have access to this couple space.");
           } else if (error.reason === "invalid" && error.detail) {
             showFeedback(error.detail);
@@ -414,6 +498,78 @@
         } else if (state.current && state.current.key !== shownKey) {
           shownKey = state.current.key;
           card.showQuestion(state.current.text);
+        }
+      }
+
+      // Questions mode. The server sends the partner's answer only once both
+      // have answered; until then this page only learns that it exists.
+      const answerPanel = document.getElementById("answer-panel");
+      const answerForm = document.getElementById("answer-form");
+      const answerText = document.getElementById("answer-text");
+      const answerCount = document.getElementById("answer-count");
+      const answerBtn = document.getElementById("answerBtn");
+      const answerStatus = document.getElementById("answer-status");
+      const reveal = document.getElementById("reveal");
+      let answerCard = null; // The card the answer box belongs to.
+      let pendingAnswer = null; // { id, text, card, stale } until it's saved.
+
+      if (answering) answerPanel.hidden = false;
+
+      answerText.addEventListener("input", () => {
+        answerCount.textContent = `${answerText.value.length}/500`;
+      });
+
+      answerForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = answerText.value.trim();
+        if (!text || !answerCard) return;
+        sendAnswer(text);
+      });
+
+      function sendAnswer(text) {
+        const id = room.act("answer", { text, card: answerCard });
+        pendingAnswer = { id, text, card: answerCard, stale: false };
+      }
+
+      function renderAnswers(message) {
+        renderRoomState(message);
+        const { state, names } = message;
+        const partner = (names && names.partner) || "Your partner";
+        const current = state.current;
+        answerPanel.hidden = !current || state.finished;
+        if (!current) return;
+
+        if (current.key !== answerCard) {
+          // A new card (or the first state after loading or reconnecting):
+          // show this player's saved answer, if any, else an empty box.
+          answerCard = current.key;
+          answerText.value = state.my_answer || "";
+          answerCount.textContent = `${answerText.value.length}/500`;
+        }
+        if (pendingAnswer) {
+          if (pendingAnswer.card !== current.key || state.phase !== "answering") {
+            pendingAnswer = null; // The card moved on; the answer is dropped.
+          } else if (state.my_answer === pendingAnswer.text) {
+            pendingAnswer = null; // Saved.
+          } else if (pendingAnswer.stale) {
+            sendAnswer(pendingAnswer.text);
+          }
+        }
+
+        const revealed = state.phase === "revealed";
+        answerForm.hidden = revealed;
+        reveal.hidden = !revealed;
+        document.getElementById("reveal-partner-name").textContent = partner;
+        if (revealed) {
+          document.getElementById("reveal-mine").textContent = state.my_answer || "";
+          document.getElementById("reveal-partner").textContent = state.partner_answer || "";
+          answerStatus.textContent = "You've both answered.";
+        } else if (state.my_answer) {
+          answerBtn.textContent = "Update answer";
+          answerStatus.textContent = `Your answer is saved. Waiting for ${partner}.`;
+        } else {
+          answerBtn.textContent = "Save answer";
+          answerStatus.textContent = state.partner_answered ? `${partner} has answered.` : "";
         }
       }
 
