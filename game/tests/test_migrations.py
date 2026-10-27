@@ -32,7 +32,9 @@ class MigrationTestCase(TransactionTestCase):
         return executor.loader.project_state(targets).apps
 
     def tearDown(self):
-        latest = MigrationExecutor(connection).loader.graph.leaf_nodes("game")
+        # Every app: unapplying game migrations also unapplies other apps'
+        # migrations that depend on them (couples.0003).
+        latest = MigrationExecutor(connection).loader.graph.leaf_nodes()
         self.migrate(latest)
         super().tearDown()
 

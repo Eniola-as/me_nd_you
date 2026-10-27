@@ -75,10 +75,11 @@ class SquashedMigrationTestCase(TransactionTestCase):
 
     def tearDown(self):
         # Leave the database fully migrated: the originals (so Django treats
-        # the squash as applied), then everything after the squash.
+        # the squash as applied), then everything after the squash, in every
+        # app (other apps' migrations that depend on game were unapplied too).
         migrate([ORIGINALS[-1]], use_squash=False)
         ex = executor()
-        ex.migrate(ex.loader.graph.leaf_nodes("game"))
+        ex.migrate(ex.loader.graph.leaf_nodes())
         super().tearDown()
 
 
