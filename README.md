@@ -105,12 +105,28 @@ The project now uses its own user model (`accounts.User`, email and
 password). Django cannot switch an existing database to a new user model in
 place: `migrate` stops with `InconsistentMigrationHistory` before changing
 anything. Carry the game data into a fresh database instead (XML keeps
-timestamps exact; JSON rounds them to milliseconds):
+timestamps exact; JSON rounds them to milliseconds).
 
-```bash
-# 1. With the old database still in place, export the couples' data.
-python manage.py dumpdata game.CoupleSession game.CustomQuestion game.PlayedQuestion --format xml -o game_data.xml
-# 2. Keep the old database as a backup, e.g. rename db.sqlite3 to db.before-accounts.sqlite3.
+The export must run with the code from commit `82a8222`: today's code expects
+columns an old database doesn't have yet (`dumpdata` fails with `no such
+column: game_customquestion.space_id`). A temporary worktree provides that
+code without touching your checkout; it reads a copy of the database, and its
+throwaway `SECRET_KEY` doesn't affect the data. Stop the development server,
+activate the virtual environment, and run from the project folder:
+
+```powershell
+# PowerShell
+# 1. Export the couples' data with the older code, from a copy of the database.
+git worktree add ..\me_nd_you_export 82a8222
+Copy-Item db.sqlite3 ..\me_nd_you_export\db.sqlite3
+Push-Location ..\me_nd_you_export
+$env:SECRET_KEY = "export-only"; $env:DEBUG = "True"
+python manage.py dumpdata game.CoupleSession game.CustomQuestion game.PlayedQuestion --format xml -o ..\me_nd_you\game_data.xml
+Remove-Item Env:SECRET_KEY, Env:DEBUG
+Pop-Location
+git worktree remove --force ..\me_nd_you_export
+# 2. Keep the old database as a backup.
+Rename-Item db.sqlite3 db.before-accounts.sqlite3
 # 3. Create the fresh database and load the data back.
 python manage.py migrate
 python manage.py loaddata game_data.xml
@@ -118,7 +134,26 @@ python manage.py loaddata game_data.xml
 python manage.py createsuperuser
 ```
 
-`game_data.xml` contains secret words: keep it private and delete it when done.
+```bash
+# Bash
+# 1. Export the couples' data with the older code, from a copy of the database.
+git worktree add ../me_nd_you_export 82a8222
+cp db.sqlite3 ../me_nd_you_export/db.sqlite3
+(cd ../me_nd_you_export && SECRET_KEY=export-only DEBUG=True \
+  python manage.py dumpdata game.CoupleSession game.CustomQuestion game.PlayedQuestion --format xml -o ../me_nd_you/game_data.xml)
+git worktree remove --force ../me_nd_you_export
+# 2. Keep the old database as a backup.
+mv db.sqlite3 db.before-accounts.sqlite3
+# 3. Create the fresh database and load the data back.
+python manage.py migrate
+python manage.py loaddata game_data.xml
+# 4. Recreate admin logins (old admin accounts are not carried over).
+python manage.py createsuperuser
+```
+
+If anything goes wrong, rename `db.before-accounts.sqlite3` back to
+`db.sqlite3`. `game_data.xml` contains secret words: keep it private and
+delete it when done.
 
 ## Running the Tests
 
