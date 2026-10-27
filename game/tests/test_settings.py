@@ -47,6 +47,11 @@ class DeploymentFilesTests(SimpleTestCase):
         # The DB_* variables were never read by settings.py.
         self.assertNotRegex(render_yaml, r"key: DB_")
 
+    def test_render_takes_the_email_settings_from_the_dashboard(self):
+        render_yaml = (self.root / "render.yaml").read_text()
+        for key in ["EMAIL_PROVIDER", "EMAIL_API_KEY", "DEFAULT_FROM_EMAIL"]:
+            self.assertRegex(render_yaml, rf"key: {key}\s+sync: false")
+
     def test_render_starts_daphne_with_the_asgi_application(self):
         render_yaml = (self.root / "render.yaml").read_text()
         self.assertIn("startCommand: daphne -b 0.0.0.0 -p $PORT me_nd_you.asgi:application", render_yaml)

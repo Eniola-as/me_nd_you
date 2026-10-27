@@ -37,3 +37,12 @@ services:
       # A hard-to-guess admin path, e.g. "backstage-x7k2/".
       - key: ADMIN_URL
         sync: false
+      # Email through a provider's HTTPS API (brevo, resend or postmark);
+      # the free tier blocks SMTP. Deploy checks accounts.W001-W003 warn
+      # while these are missing.
+      - key: EMAIL_PROVIDER
+        sync: false
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false

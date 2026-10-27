@@ -40,6 +40,9 @@ question lists reset on every restart.
 | `DATABASE_URL` | The database's **internal** connection string | Dashboard |
 | `TRUSTED_PROXY_COUNT` | Number of proxies in front of the app. **Verify with Render; don't guess.** Until set, all visitors share one rate-limit bucket (`game.W001`). | Dashboard |
 | `ADMIN_URL` | A hard-to-guess path ending in `/` | Dashboard |
+| `EMAIL_PROVIDER` | `brevo`, `resend` or `postmark`. Mail goes through the provider's HTTPS API; there is no SMTP option (Render's free tier blocks SMTP). Unset, mail is only printed to the log (`accounts.W001`). | Dashboard |
+| `EMAIL_API_KEY` | The provider's API key (Postmark: the server token) (`accounts.W002`) | Dashboard |
+| `DEFAULT_FROM_EMAIL` | The sending address, e.g. `hello@your-domain`; it must be verified with the provider. Mail shows as from "Me & You" (`accounts.W003`). | Dashboard |
 | `SECURE_HSTS_SECONDS` | Optional; default 3600. Raise once HTTPS is confirmed. | Dashboard |
 | `RENDER_EXTERNAL_HOSTNAME` | Set by Render automatically | — |
 
@@ -58,6 +61,9 @@ values never enter the repository.
    prices, free-tier limits, whether `preDeployCommand` is available on the
    chosen instance type, and the database's backup schedule and retention.)
 4. **Find out the proxy count** for `TRUSTED_PROXY_COUNT`.
+5. **Choose an email provider** (Brevo, Resend or Postmark), create an API
+   key and verify the sending address or domain with them. (**Verify with
+   the provider**: free-tier sending limits and what verification needs.)
 
 There is no production data to carry over: the secret-word couples were test
 data and that system has been removed. The PostgreSQL database starts empty.
@@ -76,8 +82,10 @@ data and that system has been removed. The PostgreSQL database starts empty.
 
 ## After every deploy: checks
 
-- `python manage.py check --deploy` shows no warnings (`game.W001` and
-  `game.W002` must be gone).
+- `python manage.py check --deploy` shows no warnings (`game.W001`,
+  `game.W002` and `accounts.W001`-`W003` must be gone).
+- "Forgot your password?" on the sign-in page, for your own account: the
+  email arrives, the link works, and other devices are signed out.
 - The site loads over HTTPS, and `/admin/` is not the admin path.
 - Two browsers on the same couple: Next on one shows the question on the
   other (WebSockets work).

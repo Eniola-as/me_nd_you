@@ -15,6 +15,7 @@ visit https://me-nd-you.onrender.com
 ## Key Features
 
 - Email accounts with display names; partners never see each other's email
+- Email verification (a reminder, never a requirement) and password reset by email
 - Private couple spaces, joined with a single-use invitation link
 - Multiple game modes including Questions, Truth or Dare, Challenges, Spicy Only, Mixed Mode, and Would You Rather
 - A server-held game: both partners always see the same card, in real time over WebSockets
@@ -171,6 +172,12 @@ me_nd_you/
 The live version of this application is hosted on **Render's free hosting tier**. Because of the limitations of the free plan, some features that depend on persistent connections or online session sharing (such as multiplayer gameplay) may not function as intended in the deployed version.
 
 Live updates between partners use Channels' in-memory layer, which works within one server process. Running several processes would need a shared layer such as Redis.
+
+Changing an account's email address isn't possible yet.
+
+Verification and password-reset emails are sent from a background thread. If the server restarts mid-send, that email is lost; requesting another one works. Like the rate limits, the one-verification-email-per-2-minutes limit is counted per server process.
+
+Locally, emails are printed in the terminal running the server (no provider needed); copy the link from there.
 
 The app installs as a PWA, but pages don't load offline yet: the service worker is registered with the scope `/static/`, so it doesn't control any app page. Fixing this is a small future task (serve the worker from `/` and cache the pages it should open offline).
 
