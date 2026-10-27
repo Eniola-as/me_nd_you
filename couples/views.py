@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from accounts.views import rate_limited
@@ -19,9 +20,31 @@ class LegacyClaimThrottle(ClientRateThrottle):
     scope = "legacy_claim"
 
 
+# Real tokens are 43 characters; anything far longer is not kept.
+MAX_TOKEN_LENGTH = 100
+
+
+@ensure_csrf_cookie
+@rate_limited("invite_link")
+@require_http_methods(["GET", "POST"])
+def invitation_page(request):
+    """Invitation links look like /invite/#<token>. Browsers never send the
+    part after "#", so the token stays out of server and proxy logs; this
+    page reads it and posts it back."""
+    if request.method == "GET":
+        return render(request, "couples/invite.html")
+    return _remember_invitation(request, request.POST.get("token", ""))
+
+
 @require_http_methods(["GET"])
 def invitation_link(request, token):
-    request.session[PENDING_INVITE] = token
+    # Old links put the token in the path (and so in access logs).
+    return _remember_invitation(request, token)
+
+
+def _remember_invitation(request, token):
+    if token and len(token) <= MAX_TOKEN_LENGTH:
+        request.session[PENDING_INVITE] = token
     if not request.user.is_authenticated:
         return redirect("/accounts/login/?next=/space/")
     return redirect("/space/")
@@ -60,7 +83,7 @@ def _handle_action(request):
             messages.success(request, "Your couple space is ready. Invite your partner.")
         elif action == "create_invite":
             token = services.create_invitation(user)
-            request.session[NEW_INVITE_URL] = request.build_absolute_uri(f"/invite/{token}/")
+            request.session[NEW_INVITE_URL] = request.build_absolute_uri(f"/invite/#{token}")
         elif action == "revoke_invites":
             services.revoke_invitations(user)
             messages.success(request, "The invitation link no longer works.")

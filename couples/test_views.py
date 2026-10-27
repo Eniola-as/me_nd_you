@@ -1,5 +1,6 @@
 """Web flows: registration, sign-in, the couple page and invitation links."""
 
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -174,6 +175,65 @@ class InvitationLinkTests(TestCase):
         client.post("/space/", {"action": "accept_invite"})
         with self.assertRaises(services.CoupleFull):
             services.create_invitation(self.ann)
+
+
+class FragmentInvitationTests(TestCase):
+    """New links carry the token after "#", which browsers never send, so it
+    stays out of server and proxy logs; the page posts it instead."""
+
+    def setUp(self):
+        cache.clear()
+        self.ann, self.ben = make_user("ann@example.com"), make_user("ben@example.com")
+        self.client = signed_in(self.ann)
+        self.client.post("/space/", {"action": "create_couple"})
+
+    def new_link(self):
+        self.client.post("/space/", {"action": "create_invite"})
+        page = self.client.get("/space/").content.decode()
+        match = re.search(r"http://testserver/invite/#([A-Za-z0-9_-]+)", page)
+        self.assertIsNotNone(match, "the link should carry the token in the fragment")
+        return match.group(1)
+
+    def test_new_links_put_the_token_in_the_fragment(self):
+        token = self.new_link()
+        self.assertEqual(Invitation.objects.get().token_hash, services.hash_token(token))
+
+    def test_invite_page_holds_no_token_and_sets_the_csrf_cookie(self):
+        response = Client().get("/invite/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("csrftoken", response.cookies)
+        self.assertContains(response, "location.hash")
+        self.assertContains(response, 'name="token"')
+
+    def test_posting_the_token_works_like_opening_an_old_link(self):
+        token = self.new_link()
+        visitor = Client()
+        response = visitor.post("/invite/", {"token": token})
+        self.assertRedirects(response, "/accounts/login/?next=/space/", fetch_redirect_response=False)
+        self.assertNotIn(token, response["Location"])
+        ben = signed_in(self.ben)
+        self.assertRedirects(ben.post("/invite/", {"token": token}), "/space/", fetch_redirect_response=False)
+        self.assertIsNone(services.active_couple(self.ben))  # Not joined until accepted.
+        ben.post("/space/", {"action": "accept_invite"})
+        self.assertEqual(services.active_couple(self.ben), services.active_couple(self.ann))
+
+    def test_posting_needs_the_csrf_token(self):
+        token = self.new_link()
+        strict = Client(enforce_csrf_checks=True)
+        self.assertEqual(strict.post("/invite/", {"token": token}).status_code, 403)
+
+    def test_empty_or_oversized_tokens_are_not_kept(self):
+        visitor = Client()
+        for token in ["", "x" * 500]:
+            visitor.post("/invite/", {"token": token})
+            self.assertNotIn("pending_invite", visitor.session)
+
+    def test_old_path_links_still_work_until_they_expire(self):
+        token = services.create_invitation(self.ann)
+        ben = signed_in(self.ben)
+        ben.get(f"/invite/{token}/")
+        ben.post("/space/", {"action": "accept_invite"})
+        self.assertEqual(services.active_couple(self.ben), services.active_couple(self.ann))
 
 
 class FrontendModeTests(TestCase):
