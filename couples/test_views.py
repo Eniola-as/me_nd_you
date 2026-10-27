@@ -242,7 +242,7 @@ class FrontendModeTests(TestCase):
         services.create_couple(ann)
         html = signed_in(ann).get("/play/?mode=questions").content.decode()
         self.assertIn("js/room-client.js", html)
-        self.assertIn("/ws/room/questions/", html)
+        self.assertIn("/ws/room/${game}/", html)
         # Next and Reset are requests to the server, not local deck moves.
         self.assertIn('room.act("next")', html)
         self.assertIn('room.act("reset")', html)

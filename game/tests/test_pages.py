@@ -74,7 +74,8 @@ class GamePageAccessTests(TestCase):
     def test_play_page_runs_on_the_server_room_only(self):
         html = signed_in(self.ann).get("/play/?mode=spicy").content.decode()
         self.assertIn("js/room-client.js", html)
-        self.assertIn("/ws/room/questions/", html)
+        self.assertIn('"questions"', html)  # The shared-deck game for this mode.
+        self.assertIn("/ws/room/${game}/", html)
         for gone in ["game-messages.js", "GameMessages", "secret", "/ws/game/", "localStorage.setItem(key",
                      "/api/questions/", "/api/add-custom-question/"]:
             self.assertNotIn(gone, html)
@@ -89,3 +90,32 @@ class RemovedRoutesTests(TestCase):
                     "/api/space/questions/questions/"]:
             self.assertEqual(client.get(url).status_code, 404, url)
             self.assertEqual(client.post(url, {}, content_type="application/json").status_code, 404, url)
+
+
+class TruthOrDarePageTests(TestCase):
+    """The play page runs Truth or Dare as turns on its own room; the other
+    modes keep the shared Next deck."""
+
+    def setUp(self):
+        self.ann = make_user("ann@example.com")
+        services.create_couple(self.ann)
+        self.html = signed_in(self.ann).get("/play/?mode=truth").content.decode()
+
+    def test_truth_or_dare_uses_its_own_room(self):
+        self.assertIn('"truth_or_dare"', self.html)
+        self.assertIn("/ws/room/${game}/${encodeURIComponent(mode)}/", self.html)
+
+    def test_it_has_a_turn_banner_and_its_own_buttons(self):
+        for element in ['id="turn-banner"', 'id="card-kind"', 'id="truthBtn"', 'id="dareBtn"', 'id="skipBtn"']:
+            self.assertIn(element, self.html)
+        for action in ['room.act("choose", { kind: "truth" })', 'room.act("choose", { kind: "dare" })',
+                       'room.act("skip")']:
+            self.assertIn(action, self.html)
+
+    def test_the_banner_announces_the_random_first_turn(self):
+        self.assertIn("Coin toss: you go first", self.html)
+        self.assertIn("goes first", self.html)
+
+    def test_custom_questions_say_whether_they_are_a_truth_or_a_dare(self):
+        self.assertIn('name="new-kind"', self.html)
+        self.assertIn("kind: selectedKind()", self.html)
