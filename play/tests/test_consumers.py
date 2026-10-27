@@ -264,3 +264,25 @@ class RoomSocketTests(TransactionTestCase):
         self.assertNotIn("Ann's secret answer", str(b_before))
         self.assertTrue(b_before["state"]["partner_answered"])
         self.assertEqual(b_after["state"]["partner_answer"], "Ann's secret answer")
+
+    def test_truth_or_dare_turns_over_the_socket(self):
+        path = "/ws/room/truth_or_dare/truth/"
+
+        async def scenario(app):
+            (a, sa), (b, sb) = await self.open(app, "ann", path), await self.open(app, "ben", path)
+            player, partner = (a, b) if sa["state"]["your_turn"] else (b, a)
+            await partner.send_json_to(action("choose", sa["version"], payload={"kind": "dare"}))
+            _, refused = await self.latest_state(partner)
+            await player.send_json_to(action("choose", sa["version"], payload={"kind": "dare"}))
+            fp, _ = await self.latest_state(player)
+            fq, _ = await self.latest_state(partner)
+            await a.disconnect(); await b.disconnect()
+            return sa, sb, refused, fp, fq
+
+        sa, sb, refused, fp, fq = self.run_async(scenario)
+        self.assertNotEqual(sa["state"]["your_turn"], sb["state"]["your_turn"])
+        self.assertEqual([e.get("detail") for e in refused], ["It's not your turn."])
+        self.assertEqual(fp["state"]["current"], fq["state"]["current"])
+        self.assertEqual(fp["state"]["current"]["kind"], "dare")
+        self.assertEqual((fp["state"]["your_turn"], fq["state"]["your_turn"]), (False, True))
+        self.assertNotIn("dares", fp["state"])

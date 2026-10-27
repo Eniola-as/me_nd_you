@@ -7,6 +7,8 @@ and stores the result in one transaction.
 
 import random
 
+from game.truth_or_dare import DARE, TRUTH, display_text
+
 
 class ActionInvalid(Exception):
     """The action isn't allowed in the current state, or its input is bad."""
@@ -41,6 +43,8 @@ class QuestionsGame:
     Covers today's modes (questions, truth, challenge, spicy, mixed, would)."""
 
     key = "questions"
+    variants = None  # Every mode.
+    shows_names = False
 
     def start(self, cards, seed):
         source = as_source(cards)
@@ -143,7 +147,111 @@ class AnswerRevealGame(QuestionsGame):
         return dict(state, answers=answers, phase=phase)
 
 
-GAMES = {game.key: game for game in (QuestionsGame(), AnswerRevealGame())}
+class TruthOrDareGame:
+    """Turn-based Truth or Dare. The player whose turn it is picks Truth or
+    Dare; the server draws the next card from that pool and the turn passes
+    to the partner. The player whose card is up may skip it as often as they
+    like: they get the next card of the same kind, the turn stays as it is,
+    and the skipped card goes to the bottom of its pool. The first turn is
+    random (from the seed). Reset starts again with full pools."""
+
+    key = "truth_or_dare"
+    variants = {"truth"}  # The Truth or Dare mode's questions.
+    shows_names = True  # The turn banner names the partner.
+    POOLS = {TRUTH: "truths", DARE: "dares"}
+
+    def start(self, cards, seed):
+        rng = random.Random(seed)
+        pools = {kind: [card["key"] for card in as_source(cards).all() if card.get("kind") == kind]
+                 for kind in self.POOLS}
+        for keys in pools.values():
+            rng.shuffle(keys)
+        first = rng.choice([1, 2])
+        return {
+            "truths": pools[TRUTH],
+            "dares": pools[DARE],
+            "turn": first,
+            "first_turn": first,
+            "current": None,
+            "drawn_by": None,
+            "draws": 0,
+            "seed": seed,
+            "finished": not (pools[TRUTH] or pools[DARE]),
+        }
+
+    def apply(self, state, action, actor_slot, cards, payload=None, seed=None):
+        if action == "choose":
+            return self._choose(state, actor_slot, cards, (payload or {}).get("kind"))
+        if action == "skip":
+            return self._skip(state, actor_slot, cards)
+        if action == "reset":
+            return self.start(cards, seed if seed is not None else new_seed())
+        raise ActionInvalid("Unknown action.")
+
+    def insert_card(self, state, card, seed):
+        """Add a new card to its own pool, at a random place, once."""
+        pool = self.POOLS.get(card.get("kind"))
+        current = state["current"] or {}
+        if pool is None or card["key"] in state[pool] or current.get("key") == card["key"]:
+            return state
+        keys = list(state[pool])
+        keys.insert(random.Random(seed).randint(0, len(keys)), card["key"])
+        return dict(state, **{pool: keys}, finished=False)
+
+    def view(self, state, viewer_slot):
+        """What a player may see. Pool order stays on the server."""
+        current = state["current"]
+        if current:
+            current = dict(current, text=display_text(current["text"]))
+        truths, dares = len(state["truths"]), len(state["dares"])
+        return {
+            "current": current,
+            "your_turn": state["turn"] == viewer_slot,
+            "first_turn_yours": state["first_turn"] == viewer_slot,
+            "drawn_by_you": state["drawn_by"] == viewer_slot,
+            "draws": state["draws"],
+            "truths_left": truths,
+            "dares_left": dares,
+            "remaining": truths + dares,
+            "finished": state["finished"],
+        }
+
+    def _choose(self, state, actor_slot, cards, kind):
+        if kind not in self.POOLS:
+            raise ActionInvalid("Choose Truth or Dare.")
+        if actor_slot != state["turn"]:
+            raise ActionInvalid("It's not your turn.")
+        pool = self.POOLS[kind]
+        if not state[pool]:
+            raise ActionInvalid(f"No {pool} left.")
+        keys = list(state[pool])
+        drawn = keys.pop(0)
+        new = dict(state, **{pool: keys}, current=self._card(cards, drawn, kind), drawn_by=actor_slot,
+                   turn=3 - actor_slot, draws=state["draws"] + 1)
+        new["finished"] = not (new["truths"] or new["dares"])
+        return new
+
+    def _skip(self, state, actor_slot, cards):
+        current = state["current"]
+        if current is None or state["drawn_by"] != actor_slot:
+            raise ActionInvalid("Only the player whose card it is can skip it.")
+        kind = current["kind"]
+        pool = self.POOLS[kind]
+        if not state[pool]:
+            raise ActionInvalid(f"That was the last {kind}.")
+        keys = list(state[pool]) + [current["key"]]  # Skipped card to the bottom.
+        drawn = keys.pop(0)
+        return dict(state, **{pool: keys}, current=self._card(cards, drawn, kind))
+
+    @staticmethod
+    def _card(cards, key, kind):
+        card = as_source(cards).get(key) or {
+            "key": key, "text": "(This question was removed.)", "mode": "truth", "custom": False,
+        }
+        return dict(card, kind=kind)
+
+
+GAMES = {game.key: game for game in (QuestionsGame(), AnswerRevealGame(), TruthOrDareGame())}
 
 
 def get_game(key):

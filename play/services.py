@@ -53,10 +53,10 @@ class Stale(PlayError):
 def room_for(user, game_key, variant):
     """The couple's active room for a game and mode, created on first use."""
     try:
-        games.get_game(game_key)
+        game = games.get_game(game_key)
     except games.ActionInvalid as error:
         raise Invalid(str(error)) from None
-    if variant not in VALID_MODES:
+    if variant not in VALID_MODES or (game.variants is not None and variant not in game.variants):
         raise Invalid("Unknown game mode.")
     couple = active_couple(user)
     if couple is None:
@@ -76,8 +76,12 @@ def snapshot(room, user):
     """The room as this user may see it. Raises Forbidden for non-members
     and closed rooms, so a revoked player never gets another update."""
     membership = _membership(user, room)
-    view = games.get_game(room.game).view(room.state, viewer_slot=membership.slot)
-    return {"type": "state", "game": room.game, "variant": room.variant, "version": room.version, "state": view}
+    game = games.get_game(room.game)
+    view = game.view(room.state, viewer_slot=membership.slot)
+    snap = {"type": "state", "game": room.game, "variant": room.variant, "version": room.version, "state": view}
+    if game.shows_names:
+        snap["names"] = _names(user, room)
+    return snap
 
 
 def apply_action(user, room_id, action, expected_version, request_id, payload=None):
@@ -158,6 +162,15 @@ def _membership(user, room):
     if membership is None:
         raise Forbidden()
     return membership
+
+
+def _names(user, room):
+    """Display names for turn banners; never an email address."""
+    partner = (
+        Membership.objects.active().filter(couple_id=room.couple_id).exclude(user=user)
+        .select_related("user").first()
+    )
+    return {"me": user.display_name, "partner": partner.user.name_for_partner if partner else ""}
 
 
 def _active_room(couple, game_key, variant):

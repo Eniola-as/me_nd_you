@@ -10,6 +10,7 @@ def card_for_question(question):
         "key": f"{'c' if custom else 'q'}:{question.pk}",
         "text": question.text,
         "mode": question.mode,
+        "kind": question.kind,  # "truth" or "dare" in Truth or Dare, else "".
         "custom": custom,
     }
 
