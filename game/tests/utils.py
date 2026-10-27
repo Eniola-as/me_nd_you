@@ -14,6 +14,9 @@ SETTINGS_ENV_KEYS = [
     "ADMIN_URL",
     "TRUSTED_PROXY_COUNT",
     "DATABASE_URL",
+    "EMAIL_PROVIDER",
+    "EMAIL_API_KEY",
+    "DEFAULT_FROM_EMAIL",
     # A test run with --settings exports this; children must load the real
     # settings module.
     "DJANGO_SETTINGS_MODULE",

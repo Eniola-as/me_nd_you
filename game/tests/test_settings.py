@@ -16,6 +16,10 @@ PRODUCTION_ENV = {
     "TRUSTED_PROXY_COUNT": "1",
     # Placeholder URL: only parsed, never connected to by `check --deploy`.
     "DATABASE_URL": "postgres://app:not-a-real-password@db.internal:5432/me_nd_you",
+    # Placeholder values: no provider account exists and nothing is sent.
+    "EMAIL_PROVIDER": "brevo",
+    "EMAIL_API_KEY": "test-only-fake-api-key",
+    "DEFAULT_FROM_EMAIL": "hello@me-nd-you.example",
 }
 
 

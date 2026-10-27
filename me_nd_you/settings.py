@@ -5,9 +5,11 @@ Django settings for me_nd_you project.
 
 import mimetypes
 import sys
+from email.utils import formataddr
 from pathlib import Path
 import dj_database_url
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -62,6 +64,7 @@ INSTALLED_APPS = [
     "play",
     "rest_framework",
     "channels",
+    "anymail",
 ]
 
 MIDDLEWARE = [
@@ -204,6 +207,32 @@ REST_FRAMEWORK = {
     # verified (a deploy check warns while it is unset).
     "NUM_PROXIES": TRUSTED_PROXY_COUNT or 0,
 }
+
+# Email. EMAIL_PROVIDER picks one of django-anymail's HTTPS API backends;
+# EMAIL_API_KEY is that provider's key. There is deliberately no SMTP option:
+# Render's free tier blocks outgoing SMTP. Without a provider (local
+# development), mail is printed to the console; tests capture it in memory.
+# A deploy check warns while production is not configured.
+EMAIL_PROVIDERS = {
+    # name: (backend, the ANYMAIL setting that holds its key)
+    "brevo": ("anymail.backends.brevo.EmailBackend", "BREVO_API_KEY"),
+    "resend": ("anymail.backends.resend.EmailBackend", "RESEND_API_KEY"),
+    "postmark": ("anymail.backends.postmark.EmailBackend", "POSTMARK_SERVER_TOKEN"),
+}
+EMAIL_PROVIDER = config("EMAIL_PROVIDER", default="").strip().lower()
+EMAIL_API_KEY = config("EMAIL_API_KEY", default="")
+if not EMAIL_PROVIDER:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    ANYMAIL = {}
+elif EMAIL_PROVIDER in EMAIL_PROVIDERS:
+    EMAIL_BACKEND, _key_setting = EMAIL_PROVIDERS[EMAIL_PROVIDER]
+    ANYMAIL = {_key_setting: EMAIL_API_KEY}
+else:
+    raise ImproperlyConfigured(
+        f"EMAIL_PROVIDER must be one of {', '.join(sorted(EMAIL_PROVIDERS))}, or unset for the console."
+    )
+DEFAULT_FROM_EMAIL_ADDRESS = config("DEFAULT_FROM_EMAIL", default="")
+DEFAULT_FROM_EMAIL = formataddr(("Me & You", DEFAULT_FROM_EMAIL_ADDRESS or "no-reply@localhost"))
 
 # Django Channels
 CHANNEL_LAYERS = {
