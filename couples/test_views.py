@@ -134,13 +134,13 @@ class InvitationLinkTests(TestCase):
 
     def test_signed_out_visitor_is_sent_to_sign_in_without_the_token_in_the_url(self):
         client = Client()
-        response = client.get(f"/invite/{self.token}/")
+        response = client.post("/invite/", {"token": self.token})
         self.assertRedirects(response, "/accounts/login/?next=/space/", fetch_redirect_response=False)
         self.assertNotIn(self.token, response["Location"])
 
     def test_opening_the_link_does_not_join_until_accepted(self):
         client = signed_in(self.ben)
-        client.get(f"/invite/{self.token}/")
+        client.post("/invite/", {"token": self.token})
         self.assertIsNone(services.active_couple(self.ben))
         page = client.get("/space/").content.decode()
         self.assertIn("accept_invite", page)
@@ -148,16 +148,16 @@ class InvitationLinkTests(TestCase):
 
     def test_accepting_joins_the_couple(self):
         client = signed_in(self.ben)
-        client.get(f"/invite/{self.token}/")
+        client.post("/invite/", {"token": self.token})
         client.post("/space/", {"action": "accept_invite"})
         self.assertEqual(services.active_couple(self.ben), services.active_couple(self.ann))
 
     def test_used_link_is_refused(self):
         signed = signed_in(self.ben)
-        signed.get(f"/invite/{self.token}/")
+        signed.post("/invite/", {"token": self.token})
         signed.post("/space/", {"action": "accept_invite"})
         cy = signed_in(make_user("cy@example.com"))
-        cy.get(f"/invite/{self.token}/")
+        cy.post("/invite/", {"token": self.token})
         response = cy.post("/space/", {"action": "accept_invite"}, follow=True)
         self.assertIn("invalid or has expired", response.content.decode())
         self.assertIsNone(services.active_couple(get_user_model().objects.get(email="cy@example.com")))
@@ -165,13 +165,13 @@ class InvitationLinkTests(TestCase):
     def test_expired_link_is_refused(self):
         Invitation.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
         client = signed_in(self.ben)
-        client.get(f"/invite/{self.token}/")
+        client.post("/invite/", {"token": self.token})
         response = client.post("/space/", {"action": "accept_invite"}, follow=True)
         self.assertIn("invalid or has expired", response.content.decode())
 
     def test_third_member_is_refused(self):
         client = signed_in(self.ben)
-        client.get(f"/invite/{self.token}/")
+        client.post("/invite/", {"token": self.token})
         client.post("/space/", {"action": "accept_invite"})
         with self.assertRaises(services.CoupleFull):
             services.create_invitation(self.ann)
@@ -228,12 +228,12 @@ class FragmentInvitationTests(TestCase):
             visitor.post("/invite/", {"token": token})
             self.assertNotIn("pending_invite", visitor.session)
 
-    def test_old_path_links_still_work_until_they_expire(self):
+    def test_old_path_links_no_longer_work(self):
+        # Only the fragment form exists; a token in the path would be logged.
         token = services.create_invitation(self.ann)
         ben = signed_in(self.ben)
-        ben.get(f"/invite/{token}/")
-        ben.post("/space/", {"action": "accept_invite"})
-        self.assertEqual(services.active_couple(self.ben), services.active_couple(self.ann))
+        self.assertEqual(ben.get(f"/invite/{token}/").status_code, 404)
+        self.assertNotIn("pending_invite", ben.session)
 
 
 class FrontendModeTests(TestCase):

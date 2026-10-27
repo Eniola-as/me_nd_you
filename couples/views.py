@@ -27,16 +27,7 @@ def invitation_page(request):
     page reads it and posts it back."""
     if request.method == "GET":
         return render(request, "couples/invite.html")
-    return _remember_invitation(request, request.POST.get("token", ""))
-
-
-@require_http_methods(["GET"])
-def invitation_link(request, token):
-    # Old links put the token in the path (and so in access logs).
-    return _remember_invitation(request, token)
-
-
-def _remember_invitation(request, token):
+    token = request.POST.get("token", "")
     if token and len(token) <= MAX_TOKEN_LENGTH:
         request.session[PENDING_INVITE] = token
     if not request.user.is_authenticated:
