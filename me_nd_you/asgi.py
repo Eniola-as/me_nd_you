@@ -12,8 +12,7 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
-from game import routing
-from play import routing as play_routing
+from play import routing
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "me_nd_you.settings")
 
@@ -23,7 +22,7 @@ application = ProtocolTypeRouter(
         # Reject sockets opened by pages on other sites (cross-site hijacking).
         "websocket": AllowedHostsOriginValidator(
             AuthMiddlewareStack(
-                URLRouter(routing.websocket_urlpatterns + play_routing.websocket_urlpatterns)
+                URLRouter(routing.websocket_urlpatterns)
             )
         ),
     }

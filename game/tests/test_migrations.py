@@ -27,6 +27,13 @@ class MigrationTestCase(TransactionTestCase):
 
     def migrate(self, targets):
         executor = MigrationExecutor(connection)
+        if ("game", "0007_remove_secret_word_couples") in executor.loader.applied_migrations:
+            # These scenarios predate 0007, which drops CoupleSession. Step
+            # back over it first: with the squash recorded as applied, 0006
+            # and 0007 hang off the squash, so a rollback to an original
+            # migration would otherwise leave them applied.
+            executor.migrate([("game", "0006_custom_question_space")])
+            executor = MigrationExecutor(connection)
         executor.loader.build_graph()
         executor.migrate(targets)
         return executor.loader.project_state(targets).apps

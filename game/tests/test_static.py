@@ -8,7 +8,10 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.contrib.auth import get_user_model
+from django.test import Client, SimpleTestCase, TestCase, override_settings
+
+from couples import services
 
 from .utils import load_settings
 
@@ -37,7 +40,13 @@ class CollectedPagesRenderTests(TestCase):
         storages = {**settings.STORAGES, "staticfiles": {"BACKEND": PRODUCTION_STORAGE}}
         with override_settings(STATIC_ROOT=self.static_root, STORAGES=storages):
             call_command("collectstatic", interactive=False, verbosity=0, stdout=StringIO())
-            for url in ["/", "/modes/", "/play/"]:
+            for url in ["/", "/accounts/login/", "/accounts/register/", "/invite/"]:
+                with self.subTest(url=url):
+                    self.assertEqual(Client().get(url).status_code, 200)
+            member = get_user_model().objects.create_user(email="ann@example.com", password="pw-for-tests-1")
+            services.create_couple(member)
+            self.client.force_login(member)
+            for url in ["/space/", "/modes/", "/play/?mode=questions"]:
                 with self.subTest(url=url):
                     self.assertEqual(self.client.get(url).status_code, 200)
 
@@ -68,10 +77,3 @@ class ServiceWorkerTests(SimpleTestCase):
         for url in re.findall(r'"(/static/[^"]+)"', sw):
             with self.subTest(url=url):
                 self.assertTrue((STATIC_DIR / url.removeprefix("/static/")).exists())
-
-
-class LoginResumeTests(SimpleTestCase):
-    def test_login_page_offers_to_resume_the_saved_session(self):
-        html = self.client.get("/").content.decode()
-        self.assertIn('id="resumeBtn"', html)
-        self.assertIn('localStorage.getItem("lastSession")', html)

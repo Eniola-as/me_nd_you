@@ -19,6 +19,7 @@ from couples import services
 from couples.models import Couple, Invitation, Membership
 from game.models import CustomQuestion
 from play import services as play
+from play.cards import DatabaseCards
 from play.models import GameRoom, RoomEvent
 
 PASSWORD = "a-long-passphrase-1"
@@ -131,8 +132,10 @@ class LeavePageTests(TestCase):
     def test_old_urls_and_api_stop_working_for_both(self):
         self.client.post("/space/", {"action": "leave_couple", "confirm": "yes"})
         partner = signed_in(self.ben)
-        self.assertEqual(partner.get("/api/space/questions/questions/").status_code, 403)
-        self.assertIn("const inSpace = false;", partner.get("/play/?mode=questions").content.decode())
+        added = partner.post("/api/space/custom-questions/", {"text": "Still here?", "mode": "questions"},
+                             content_type="application/json")
+        self.assertEqual(added.status_code, 403)
+        self.assertRedirects(partner.get("/play/?mode=questions"), "/space/", fetch_redirect_response=False)
         self.assertNotIn("share this space", partner.get("/space/").content.decode())
         with self.assertRaises(play.Forbidden):
             play.room_for(self.ben, "questions", "questions")
@@ -151,7 +154,7 @@ class AdminRecoveryTests(TestCase):
         self.couple.refresh_from_db()
         self.assertIsNone(self.couple.closed_at)
         self.assertEqual(services.active_couple(self.ben), self.couple)
-        texts = [q["text"] for q in signed_in(self.ben).get("/api/space/questions/questions/").json()]
+        texts = [card["text"] for card in DatabaseCards(services.active_couple(self.ben), "questions").all()]
         self.assertIn("Ours?", texts)
 
     def test_a_member_now_in_another_couple_is_not_pulled_back(self):

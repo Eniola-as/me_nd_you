@@ -14,7 +14,7 @@
       content="black-translucent"
     />
 
-    <title>Me & You - Login</title>
+    <title>Me & You</title>
 
     <link
       rel="manifest"
@@ -94,26 +94,6 @@
         color: #ffffff;
       }
 
-      form {
-        width: 100%;
-        box-sizing: border-box;
-      }
-
-      input {
-        width: 100%;
-        min-width: 0;
-        padding: 14px;
-        margin: 10px 0;
-        border: none;
-        border-radius: 12px;
-        background: #1e1e1e;
-        color: white;
-        font-size: 15px;
-        outline: none;
-        box-sizing: border-box;
-        display: block;
-      }
-
       button {
         width: 100%;
         padding: 14px;
@@ -128,8 +108,39 @@
         box-sizing: border-box;
       }
 
-      button:hover {
+      button:hover,
+      .button:hover {
         background: #ff6e7c;
+      }
+
+      .button {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        margin-top: 20px;
+        background: #ff4c61;
+        color: white;
+        font-size: 16px;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 12px;
+        transition: background 0.3s ease;
+        box-sizing: border-box;
+      }
+
+      .button.secondary {
+        background: transparent;
+        border: 2px solid #ff4c61;
+        color: #ff4c61;
+      }
+
+      .button.secondary:hover {
+        background: rgba(255, 76, 97, 0.12);
+      }
+
+      .tagline {
+        color: #aaa;
+        margin: 0 0 8px;
       }
 
       .pwa-actions {
@@ -222,32 +233,6 @@
         }
       }
 
-      .form-group {
-        margin-bottom: 16px;
-        text-align: left;
-        width: 100%;
-      }
-
-      .form-group label {
-        display: block;
-        font-size: 14px;
-        color: #ddd;
-      }
-
-      .form-group small {
-        color: #aaa;
-        display: block;
-        margin-top: 4px;
-        font-size: 14px;
-      }
-
-      .error-text {
-        color: var(--accent);
-        font-size: 12px;
-        margin-top: 4px;
-        display: block;
-      }
-
       .help-text {
         color: #aaa;
         font-size: 12px;
@@ -255,16 +240,6 @@
         display: block;
       }
 
-      #loadingIndicator {
-        text-align: center;
-        margin-top: 10px;
-        color: #aaa;
-      }
-
-      button:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-      }
     </style>
   </head>
   <body>
@@ -281,73 +256,9 @@
 
         <h1>Me & You</h1>
 
-        <button type="button" id="resumeBtn" hidden></button>
-
-        <form onsubmit="startSession(event)">
-          <div class="form-group">
-            <label for="partner1_name">Your name</label>
-            <input
-              type="text"
-              id="partner1_name"
-              name="partner1_name"
-              autocomplete="given-name"
-              aria-describedby="name1Error"
-              placeholder="e.g. Ann"
-              required
-              minlength="2"
-              pattern="[\p{L}\p{M}][\p{L}\p{M} '’.\-]*"
-              title="Letters, spaces, apostrophes or hyphens"
-            />
-            <small class="error-text" id="name1Error"></small>
-          </div>
-
-          <div class="form-group">
-            <label for="partner2_name">Your partner's name</label>
-            <input
-              type="text"
-              id="partner2_name"
-              name="partner2_name"
-              autocomplete="off"
-              aria-describedby="name2Error"
-              placeholder="e.g. Ben"
-              required
-              minlength="2"
-              pattern="[\p{L}\p{M}][\p{L}\p{M} '’.\-]*"
-              title="Letters, spaces, apostrophes or hyphens"
-            />
-            <small class="error-text" id="name2Error"></small>
-          </div>
-
-          <div class="form-group">
-            <label for="secret_word">Secret word</label>
-            <input
-              type="text"
-              id="secret_word"
-              name="secret_word"
-              autocomplete="off"
-              aria-describedby="secretHelp secretError"
-              required
-              minlength="4"
-            />
-            <small class="help-text" id="secretHelp"
-              >Share this word with your partner to play together</small
-            >
-            <small class="error-text" id="secretError"></small>
-          </div>
-
-          <button type="submit" id="submitBtn">Start Game</button>
-          <div id="loadingIndicator" style="display: none">Connecting...</div>
-          <p id="formStatus" class="help-text" role="status"></p>
-        </form>
-        <p class="help-text" style="text-align: center; margin-top: 18px">
-          {% if user.is_authenticated %}
-            Signed in. <a href="/space/" style="color: var(--accent)">Go to your couple space</a>
-          {% else %}
-            Prefer an account?
-            <a href="/accounts/login/" style="color: var(--accent)">Sign in</a> or
-            <a href="/accounts/register/" style="color: var(--accent)">create one</a>
-          {% endif %}
-        </p>
+        <p class="tagline">A private game for the two of you.</p>
+        <a class="button" href="/accounts/login/">Sign in</a>
+        <a class="button secondary" href="/accounts/register/">Create account</a>
       </div>
       <div class="pwa-actions">
         <button id="installBtn" type="button">
@@ -371,92 +282,6 @@
     </div>
 
     <script>
-      async function startSession(e) {
-        e.preventDefault();
-        const submitBtn = document.getElementById("submitBtn");
-        const loadingIndicator = document.getElementById("loadingIndicator");
-
-        // Clear previous errors
-        const formStatus = document.getElementById("formStatus");
-        formStatus.textContent = "";
-        document
-          .querySelectorAll(".error-text")
-          .forEach((el) => (el.textContent = ""));
-
-        submitBtn.disabled = true;
-        loadingIndicator.style.display = "block";
-
-        const formData = new FormData(e.target);
-
-        try {
-          const res = await fetch("/api/login/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              partner1_name: formData.get("partner1_name"),
-              partner2_name: formData.get("partner2_name"),
-              secret_word: formData.get("secret_word"),
-            }),
-          });
-
-          const data = await res.json();
-
-          if (data.success) {
-            // Remembered so the installed app can resume without retyping.
-            localStorage.setItem(
-              "lastSession",
-              JSON.stringify({
-                secret: data.session.secret,
-                names: data.session.names,
-              })
-            );
-            window.location.href = data.redirect;
-          } else {
-            // Show specific errors
-            if (data.errors?.partner1) {
-              document.getElementById("name1Error").textContent =
-                data.errors.partner1;
-            }
-            if (data.errors?.partner2) {
-              document.getElementById("name2Error").textContent =
-                data.errors.partner2;
-            }
-            if (data.errors?.secret) {
-              document.getElementById("secretError").textContent =
-                data.errors.secret;
-            }
-            // General error
-            if (data.detail) {
-              formStatus.textContent = data.detail;
-            }
-          }
-        } catch (err) {
-          console.error("Login error:", err);
-          formStatus.textContent = "Connection error. Please try again.";
-        } finally {
-          submitBtn.disabled = false;
-          loadingIndicator.style.display = "none";
-        }
-      }
-
-      // Offer to continue the last session (the installed app starts here).
-      function offerResume() {
-        let saved;
-        try {
-          saved = JSON.parse(localStorage.getItem("lastSession"));
-        } catch (err) {
-          return;
-        }
-        if (!saved || !saved.secret || !Array.isArray(saved.names)) return;
-        const resumeBtn = document.getElementById("resumeBtn");
-        resumeBtn.textContent = `Continue as ${saved.names.join(" & ")}`;
-        resumeBtn.hidden = false;
-        resumeBtn.addEventListener("click", () => {
-          window.location.href = `/modes/?secret=${encodeURIComponent(saved.secret)}`;
-        });
-      }
-      offerResume();
-
       // PWA Installation
       let deferredPrompt;
 

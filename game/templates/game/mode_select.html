@@ -142,21 +142,9 @@
     </div>
 
     <script>
-      const params = new URLSearchParams(window.location.search);
-      const secret = params.get("secret");
-
-      // Signed-in members of a couple play in their space without a secret.
-      const inSpace = {{ in_space|yesno:"true,false" }};
-      if (!secret && !inSpace) {
-        window.location.href = "/";
-      }
-
       document.querySelectorAll(".mode-card").forEach((card) => {
         card.addEventListener("click", () => {
-          const mode = card.dataset.mode;
-          const newSeed = Date.now() % 1000000000;
-          const secretPart = secret ? `&secret=${encodeURIComponent(secret)}` : "";
-          window.location.href = `/play/?mode=${encodeURIComponent(mode)}${secretPart}&seed=${newSeed}`;
+          window.location.href = `/play/?mode=${encodeURIComponent(card.dataset.mode)}`;
         });
       });
 

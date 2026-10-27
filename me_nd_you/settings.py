@@ -188,10 +188,6 @@ REST_FRAMEWORK = {
     # Per-client limits on everything that takes a secret word, to slow down
     # guessing other couples' secrets and spamming custom questions.
     "DEFAULT_THROTTLE_RATES": {
-        "login": "10/min",
-        "questions": "30/min",
-        "custom_questions": "10/min",
-        "space_questions": "30/min",
         "space_custom_questions": "10/min",
         "account_login": "10/min",
         "account_register": "10/min",

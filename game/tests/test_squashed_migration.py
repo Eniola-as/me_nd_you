@@ -143,7 +143,7 @@ class ExistingDatabaseTests(SquashedMigrationTestCase):
         # 0006 depends on the squash; for this database Django re-points that
         # dependency to the last original, 0005.
         self.assertIn(ORIGINALS[-1], {p.key for p in graph.node_map[AFTER_SQUASH].parents})
-        plan = executor().migration_plan(graph.leaf_nodes("game"))
+        plan = executor().migration_plan([AFTER_SQUASH])
         self.assertEqual(
             [m.name for m, _ in plan],
             ["0004_unique_secret_word", "0005_repair_questions", AFTER_SQUASH[1]],
@@ -157,5 +157,5 @@ class ExistingDatabaseTests(SquashedMigrationTestCase):
         loader = MigrationLoader(connection)
         self.assertIn(SQUASH, loader.applied_migrations)
         # Only what comes after the squash remains.
-        plan = executor().migration_plan(loader.graph.leaf_nodes("game"))
+        plan = executor().migration_plan([AFTER_SQUASH])
         self.assertEqual([m.name for m, _ in plan], [AFTER_SQUASH[1]])
