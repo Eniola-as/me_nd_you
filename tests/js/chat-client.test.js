@@ -236,8 +236,8 @@ test("react sends one emoji for a message, or null to remove it", () => {
   chat.react(4, "🔥");
   chat.react(4, null);
   assert.deepEqual(socket().sent.slice(-2), [
-    { type: "react", id: 4, emoji: "🔥" },
-    { type: "react", id: 4, emoji: null },
+    { type: "react", id: 4, emoji: "🔥", requestId: "req-1" },
+    { type: "react", id: 4, emoji: null, requestId: "req-2" },
   ]);
 });
 
@@ -258,4 +258,45 @@ test("when the socket gives up, the chat says it's unavailable", () => {
   timers.splice(0).forEach((fn) => fn());
   FakeSocket.instances.at(-1).drop();
   assert.equal(chat.state.error, "Chat is unavailable right now. Reload the page to try again.");
+});
+
+test("your reaction shows at once, before the server confirms it", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(4, "Hi")]));
+  chat.react(4, "🔥");
+  assert.deepEqual(chat.state.items[0].reactions, { mine: "🔥", partner: null });
+  assert.deepEqual(socket().sent.at(-1), { type: "react", id: 4, emoji: "🔥", requestId: "req-1" });
+  socket().receive({ type: "message", message: msg(4, "Hi", false, { reactions: { mine: "🔥", partner: null } }) });
+  assert.deepEqual(chat.state.items[0].reactions, { mine: "🔥", partner: null });
+});
+
+test("a refused reaction is undone, with a short message", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(4, "Hi", false, { reactions: { mine: "❤️", partner: null } })]));
+  chat.react(4, "ab");
+  assert.equal(chat.state.items[0].reactions.mine, "ab");
+  socket().receive({ type: "error", reason: "invalid", requestId: "req-1", detail: "Pick a single emoji." });
+  assert.equal(chat.state.items[0].reactions.mine, "❤️");
+  assert.equal(chat.state.error, "Couldn't react: Pick a single emoji.");
+});
+
+test("with quick taps, only the latest counts and older replies don't flash back", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(4, "Hi")]));
+  chat.react(4, "❤️");
+  chat.react(4, "😂");
+  // The server confirms the first tap before processing the second.
+  socket().receive({ type: "message", message: msg(4, "Hi", false, { reactions: { mine: "❤️", partner: null } }) });
+  assert.equal(chat.state.items[0].reactions.mine, "😂");
+  socket().receive({ type: "error", reason: "invalid", requestId: "req-1", detail: "old" });
+  assert.equal(chat.state.items[0].reactions.mine, "😂");
+  socket().receive({ type: "message", message: msg(4, "Hi", false, { reactions: { mine: "😂", partner: null } }) });
+  assert.equal(chat.state.items[0].reactions.mine, "😂");
+});
+
+test("removing a reaction shows at once too", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(4, "Hi", false, { reactions: { mine: "❤️", partner: "😂" } })]));
+  chat.react(4, null);
+  assert.deepEqual(chat.state.items[0].reactions, { mine: null, partner: "😂" });
 });

@@ -127,3 +127,29 @@ class ReactionSocketTests(TransactionTestCase):
         ann_got, ben_got = async_to_sync(scenario)()
         self.assertEqual(ann_got, [{"mine": None, "partner": "🔥"}])
         self.assertEqual(ben_got, [{"mine": "🔥", "partner": None}])
+
+    def test_a_refused_reaction_names_its_request_so_the_page_can_undo_it(self):
+        presence.reset()
+        couple, (ann, _) = make_couple("ann@example.com", "ben@example.com")
+        message = services.send(ann, couple.pk, "Hi", None)
+        client = Client()
+        client.force_login(ann)
+        cookie = f"sessionid={client.cookies['sessionid'].value}".encode()
+
+        async def scenario():
+            app = importlib.reload(me_nd_you.asgi).application
+            page = WebsocketCommunicator(app, "/ws/chat/", headers=[
+                (b"origin", b"https://me-nd-you.onrender.com"), (b"cookie", cookie)])
+            assert (await page.connect())[0]
+            while not await page.receive_nothing(timeout=0.5):
+                await page.receive_json_from()
+            await page.send_json_to({"type": "react", "id": message.pk, "emoji": "ab", "requestId": "tap-1"})
+            frames = []
+            while not await page.receive_nothing(timeout=0.5):
+                frames.append(await page.receive_json_from())
+            await page.disconnect()
+            return frames
+
+        errors = [f for f in async_to_sync(scenario)() if f["type"] == "error"]
+        self.assertEqual([(e["reason"], e["requestId"], e["detail"]) for e in errors],
+                         [("invalid", "tap-1", "Pick a single emoji.")])

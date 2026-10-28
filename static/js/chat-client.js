@@ -38,6 +38,9 @@
     let closed = false;
     let error = null;
     let connected = false;
+    // Your reaction taps not yet confirmed: message id -> { emoji, requestId }.
+    // Shown straight away; the server's copy confirms, an error undoes.
+    const pendingReactions = new Map();
     let presence = { online: false, where: null, lastSeen: null };
     let partnerTypingUntil = 0;
     let lastTypingSent = -Infinity;
@@ -109,6 +112,8 @@
       } else if (data.type === "message" && data.message) {
         const m = data.message;
         if (!m.mine) partnerTypingUntil = 0;
+        const tapped = pendingReactions.get(m.id);
+        if (tapped && m.reactions && m.reactions.mine === tapped.emoji) pendingReactions.delete(m.id);
         const known = messages.some((x) => x.id === m.id);
         if (m.requestId) pending = pending.filter((p) => p.requestId !== m.requestId);
         upsert([m]);
@@ -117,6 +122,7 @@
           else unread++;
         }
       } else if (data.type === "deleted") {
+        pendingReactions.delete(data.id);
         const gone = messages.find((m) => m.id === data.id);
         messages = messages.filter((m) => m.id !== data.id);
         if (gone && isUnread(gone) && unread > 0) unread--;
@@ -124,6 +130,15 @@
         if (lastRead === null || data.upTo > lastRead) lastRead = data.upTo;
         unread = messages.filter(isUnread).length;
       } else if (data.type === "error") {
+        const refused = [...pendingReactions].find(([, tap]) => tap.requestId === data.requestId);
+        if (refused) {
+          // Only the latest tap per message is tracked, so an older one's
+          // error can't undo a newer reaction.
+          pendingReactions.delete(refused[0]);
+          error = `Couldn't react: ${data.detail || "please try again."}`;
+          onChange();
+          return;
+        }
         if (data.reason === "forbidden") {
           closed = true;
         } else {
@@ -155,7 +170,11 @@
     }
 
     function react(id, emoji) {
-      socket.send({ type: "react", id, emoji });
+      const requestId = newRequestId();
+      pendingReactions.set(id, { emoji, requestId });
+      error = null;
+      socket.send({ type: "react", id, emoji, requestId });
+      onChange();
     }
 
     function remove(id) {
@@ -189,7 +208,13 @@
       get state() {
         return {
           items: [
-            ...messages.map((m) => ({ ...m, pending: false, failed: false })),
+            ...messages.map((m) => {
+              const tapped = pendingReactions.get(m.id);
+              const reactions = tapped
+                ? { ...(m.reactions || { mine: null, partner: null }), mine: tapped.emoji }
+                : m.reactions;
+              return { ...m, reactions, pending: false, failed: false };
+            }),
             ...pending.map((p) => ({ id: null, text: p.text, mine: true, pending: true, failed: p.failed })),
           ],
           hasMore,

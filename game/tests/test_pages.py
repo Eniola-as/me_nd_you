@@ -157,3 +157,13 @@ class QuestionsAnswerPageTests(TestCase):
     def test_the_mode_menu_explains_it(self):
         page = self.client.get("/modes/").content.decode()
         self.assertEqual(page.count("Answer privately, reveal together"), 1)
+
+
+class OptimisticAnswerReactionTests(TestCase):
+    def test_your_reaction_to_an_answer_shows_at_once_and_is_undone_if_refused(self):
+        ann = make_user("ann@example.com")
+        services.create_couple(ann)
+        html = signed_in(ann).get("/play/?mode=questions").content.decode()
+        self.assertIn("const answerReactionTaps = {};", html)
+        self.assertIn("Couldn't react: ", html.replace("&#x27;", "'"))
+        self.assertIn("tap.stale = true", html)

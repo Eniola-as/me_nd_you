@@ -482,7 +482,16 @@
         url: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/room/${game}/${encodeURIComponent(mode)}/`,
         onState: turnBased ? renderTurns : answering ? renderAnswers : renderRoomState,
         onError(error) {
-          if (error.reason === "stale" && pendingAnswer && error.requestId === pendingAnswer.id) {
+          const tap = Object.values(answerReactionTaps).find((t) => t.id === error.requestId);
+          if (tap) {
+            if (error.reason === "stale") {
+              tap.stale = true; // Resent on the next state if it's the same card.
+            } else {
+              delete answerReactionTaps[tap.target];
+              showFeedback(`Couldn't react: ${error.detail || "please try again."}`);
+              renderAnswerReactions(lastAnswerReactions);
+            }
+          } else if (error.reason === "stale" && pendingAnswer && error.requestId === pendingAnswer.id) {
             // The partner acted at the same moment; resend once the current
             // state arrives, if it's still the same card.
             pendingAnswer.stale = true;
@@ -537,17 +546,37 @@
 
       // One emoji per person on each revealed answer (the chat widget's picker).
       const answerReactionDrafts = {}; // "<card>:<target>" -> the "+" box's draft.
+      // Your reaction taps not yet confirmed: target -> { target, emoji, id,
+      // card, stale }. Shown straight away; the server confirms or refuses.
+      const answerReactionTaps = {};
+      let lastAnswerReactions = null;
+
+      function reactToAnswer(target, emoji) {
+        const id = room.act("react", { card: answerCard, target, emoji });
+        answerReactionTaps[target] = { target, emoji, id, card: answerCard, stale: false };
+        showFeedback("");
+        renderAnswerReactions(lastAnswerReactions);
+      }
+
       function renderAnswerReactions(reactions) {
         const tools = window.meYouReactions;
         if (!tools || !reactions) return;
+        lastAnswerReactions = reactions;
         for (const target of ["mine", "partner"]) {
           const on = reactions[target];
+          const tap = answerReactionTaps[target];
+          if (tap && (tap.card !== answerCard || on.me === tap.emoji)) {
+            delete answerReactionTaps[target]; // Confirmed, or the card moved on.
+          } else if (tap && tap.stale) {
+            reactToAnswer(target, tap.emoji); // The partner acted at the same moment.
+            return;
+          }
+          const mine = answerReactionTaps[target] ? answerReactionTaps[target].emoji : on.me;
           const key = `${answerCard}:${target}`;
           answerReactionDrafts[key] = answerReactionDrafts[key] || {};
           document.getElementById(`reveal-${target}-reactions`).replaceChildren(
-            tools.chips({ mine: on.me, partner: on.partner }),
-            tools.picker(on.me, (emoji) => room.act("react", { card: answerCard, target, emoji }),
-                         answerReactionDrafts[key]),
+            tools.chips({ mine, partner: on.partner }),
+            tools.picker(mine, (emoji) => reactToAnswer(target, emoji), answerReactionDrafts[key]),
           );
         }
       }
