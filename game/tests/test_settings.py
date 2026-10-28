@@ -118,6 +118,17 @@ class AdminUrlTests(SimpleTestCase):
         self.assertEqual(self.admin_index({"ADMIN_URL": "backstage-7f3k/"}), "/backstage-7f3k/")
 
 
+class PasswordHasherSettingsTests(SimpleTestCase):
+    def test_outside_the_test_runner_django_uses_its_real_slow_hasher(self):
+        # PASSWORD_HASHERS unset means Django's default (PBKDF2) in production.
+        self.assertIsNone(load_settings({}, ["PASSWORD_HASHERS"])["PASSWORD_HASHERS"])
+
+    def test_only_the_test_runner_uses_a_fast_hasher(self):
+        # Real hashing takes about half a second per password by design; the
+        # suite creates hundreds of test users.
+        self.assertEqual(settings.PASSWORD_HASHERS, ["django.contrib.auth.hashers.MD5PasswordHasher"])
+
+
 class DatabaseSettingsTests(SimpleTestCase):
     def test_sqlite_is_the_default_without_database_url(self):
         values = load_settings({}, ["DATABASES"])

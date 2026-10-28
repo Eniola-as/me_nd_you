@@ -178,6 +178,12 @@ STORAGES = {
     },
 }
 
+# Test runner only: a fast password hasher. Real hashing (PBKDF2) is slow on
+# purpose, about half a second per password, and the suite creates hundreds of
+# test users. Never active outside `manage.py test`; a test checks that.
+if TESTING:
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
 # Default primary key
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
