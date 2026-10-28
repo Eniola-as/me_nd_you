@@ -193,5 +193,7 @@
       {% endif %}
       {% block content %}{% endblock %}
     </main>
+    {# Outside the card: its backdrop-filter would pin "fixed" elements to it. #}
+    {% block after_card %}{% endblock %}
   </body>
 </html>

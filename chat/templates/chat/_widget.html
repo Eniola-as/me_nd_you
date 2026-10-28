@@ -1,0 +1,395 @@
+{% load static %}
+{% comment %}
+  The couple's private chat: a floating icon (bottom-right) with an unread
+  badge, opening a panel over the page (a full-width sheet on phones).
+  Include it once per page, at the end of <body>. Pass load_socket=True on
+  pages that don't already load socket-client.js.
+{% endcomment %}
+<style>
+  /* Room for the icon: pages scroll their last buttons clear of it. */
+  body {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  #chat-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 56px;
+    height: 56px;
+    margin: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background: #ff4c61;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+  }
+  #chat-fab:hover {
+    background: #ff6e7c;
+    color: #fff;
+  }
+  #chat-fab:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 3px;
+  }
+  #chat-fab svg {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
+  }
+  #chat-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: #fff;
+    color: #d6233a;
+    font: 600 12px/22px "Outfit", sans-serif;
+    text-align: center;
+  }
+  #chat-badge[hidden] {
+    display: none;
+  }
+  #chat-panel {
+    position: fixed;
+    right: 16px;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    z-index: 1001;
+    width: 360px;
+    height: min(520px, 70vh);
+    display: flex;
+    flex-direction: column;
+    background: #161616;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-family: "Outfit", sans-serif;
+    text-align: left;
+  }
+  #chat-panel[hidden] {
+    display: none;
+  }
+  #chat-panel header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  #chat-panel header div {
+    flex: 1;
+    min-width: 0;
+  }
+  #chat-panel h2 {
+    margin: 0;
+    font-size: 16px;
+    color: #fff;
+  }
+  #chat-presence {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: #aaa;
+    min-height: 1em;
+  }
+  #chat-panel button {
+    display: inline-block;
+    flex: none;
+    width: auto;
+    margin: 0;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #chat-panel button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+  }
+  #chat-panel #chat-close {
+    border: none;
+    background: none;
+    font-size: 18px;
+    color: #aaa;
+  }
+  #chat-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+  }
+  #chat-older {
+    display: block;
+    margin: 0 auto 8px;
+  }
+  #chat-older[hidden] {
+    display: none;
+  }
+  #chat-messages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  #chat-messages li {
+    max-width: 80%;
+    align-self: flex-start;
+  }
+  #chat-messages li.mine {
+    align-self: flex-end;
+    text-align: right;
+  }
+  #chat-messages .bubble {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    text-align: left;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 15px;
+    line-height: 1.35;
+  }
+  #chat-messages li.mine .bubble {
+    background: #ff4c61;
+  }
+  #chat-messages li.unreadable .bubble {
+    font-style: italic;
+    opacity: 0.7;
+  }
+  #chat-messages .meta {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: #999;
+  }
+  #chat-messages .meta button {
+    padding: 0 0 0 6px;
+    border: none;
+    background: none;
+    color: #999;
+    font-size: 11px;
+    text-decoration: underline;
+  }
+  #chat-empty {
+    color: #888;
+    text-align: center;
+    margin-top: 30%;
+  }
+  #chat-error {
+    margin: 0;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #ff8a98;
+  }
+  #chat-error[hidden] {
+    display: none;
+  }
+  #chat-form {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  #chat-input {
+    flex: 1;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 9px 12px;
+    border: none;
+    border-radius: 12px;
+    background: #262626;
+    color: #fff;
+    font: inherit;
+    font-size: 16px;
+    resize: none;
+  }
+  #chat-panel #chat-send {
+    border: none;
+    background: #ff4c61;
+    font-weight: 600;
+    padding: 0 16px;
+  }
+  .chat-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  @media (max-width: 600px) {
+    /* A full-width sheet; it covers the icon until it's closed. */
+    #chat-panel {
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: auto;
+      height: 80vh;
+      border-radius: 16px 16px 0 0;
+      border-bottom: none;
+    }
+  }
+</style>
+
+<button type="button" id="chat-fab" aria-label="Chat" aria-expanded="false" aria-controls="chat-panel">
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z" />
+  </svg>
+  <span id="chat-badge" aria-hidden="true" hidden>0</span>
+</button>
+
+<section id="chat-panel" aria-labelledby="chat-title" hidden>
+  <header>
+    <div>
+      <h2 id="chat-title">Chat</h2>
+      <p id="chat-presence"></p>
+    </div>
+    <button type="button" id="chat-close" aria-label="Close chat">✕</button>
+  </header>
+  <div id="chat-list">
+    <button type="button" id="chat-older" hidden>Load older messages</button>
+    <ol id="chat-messages" role="log" aria-live="polite"></ol>
+    <p id="chat-empty" hidden>No messages yet. Say hi 👋</p>
+  </div>
+  <p id="chat-error" role="alert" hidden></p>
+  <form id="chat-form">
+    <label class="chat-sr" for="chat-input">Message</label>
+    <textarea id="chat-input" maxlength="1000" rows="1" placeholder="Message…"></textarea>
+    <button type="submit" id="chat-send">Send</button>
+  </form>
+</section>
+
+{% if load_socket %}<script src="{% static 'js/socket-client.js' %}"></script>{% endif %}
+<script src="{% static 'js/chat-client.js' %}"></script>
+<script>
+  (function () {
+    const fab = document.getElementById("chat-fab");
+    const badge = document.getElementById("chat-badge");
+    const panel = document.getElementById("chat-panel");
+    const title = document.getElementById("chat-title");
+    const list = document.getElementById("chat-list");
+    const older = document.getElementById("chat-older");
+    const items = document.getElementById("chat-messages");
+    const empty = document.getElementById("chat-empty");
+    const errorLine = document.getElementById("chat-error");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("chat-input");
+    const sendButton = document.getElementById("chat-send");
+    const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+    let open = false;
+
+    const chat = createChatClient({
+      url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws/chat/`,
+      onChange: render,
+    });
+    window.chatWidget = chat; // For the browser tests.
+
+    function setOpen(value) {
+      open = value;
+      panel.hidden = !value;
+      fab.setAttribute("aria-expanded", String(value));
+      chat.setOpen(value);
+      if (value) {
+        list.scrollTop = list.scrollHeight;
+        input.focus();
+      } else {
+        fab.focus();
+      }
+    }
+
+    fab.addEventListener("click", () => setOpen(!open));
+    document.getElementById("chat-close").addEventListener("click", () => setOpen(false));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && open) setOpen(false);
+    });
+    older.addEventListener("click", () => chat.loadOlder());
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (chat.send(input.value)) input.value = "";
+    });
+    input.addEventListener("keydown", (e) => {
+      // Enter sends; Shift+Enter starts a new line.
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    function render() {
+      const state = chat.state;
+      const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+      const partner = state.partner || "your partner";
+      title.textContent = `Chat with ${partner}`;
+
+      badge.hidden = state.unread === 0;
+      badge.textContent = state.unread > 9 ? "9+" : String(state.unread);
+      fab.setAttribute("aria-label", state.unread ? `Chat, ${state.unread} unread` : "Chat");
+
+      older.hidden = !state.hasMore;
+      empty.hidden = state.items.length > 0 || !state.connected;
+      items.replaceChildren(...state.items.map(renderItem));
+
+      errorLine.hidden = !(state.error || state.closed);
+      errorLine.textContent = state.closed ? "Chat is no longer available." : state.error || "";
+      input.disabled = sendButton.disabled = state.closed;
+      if (atBottom) list.scrollTop = list.scrollHeight;
+    }
+
+    // "Delete", then "Delete for both? Yes / No", inside the panel.
+    let confirmingDelete = null;
+    function deleteControls(id) {
+      const button = (label, onClick) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.addEventListener("click", onClick);
+        return b;
+      };
+      if (confirmingDelete !== id) {
+        return [button("Delete", () => { confirmingDelete = id; render(); })];
+      }
+      const question = document.createElement("span");
+      question.textContent = " Delete for both?";
+      return [
+        question,
+        button("Yes", () => { confirmingDelete = null; chat.remove(id); }),
+        button("No", () => { confirmingDelete = null; render(); }),
+      ];
+    }
+
+    function renderItem(item) {
+      const li = document.createElement("li");
+      li.className = [item.mine ? "mine" : "theirs", item.unreadable ? "unreadable" : ""].join(" ").trim();
+      const bubble = document.createElement("span");
+      bubble.className = "bubble";
+      bubble.textContent = item.text;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      if (item.pending) {
+        meta.textContent = item.failed ? "Not sent" : "Sending…";
+      } else {
+        meta.textContent = timeFormat.format(new Date(item.sentAt));
+        if (item.mine) meta.append(...deleteControls(item.id));
+      }
+      li.append(bubble, meta);
+      return li;
+    }
+
+    chat.connect();
+  })();
+</script>

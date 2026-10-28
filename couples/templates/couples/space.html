@@ -72,3 +72,6 @@
     <button type="submit" class="secondary">Sign out</button>
   </form>
 {% endblock %}
+{% block after_card %}
+  {% if membership %}{% include "chat/_widget.html" with load_socket=True %}{% endif %}
+{% endblock %}

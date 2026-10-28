@@ -248,3 +248,25 @@ class ChatSocketTests(TransactionTestCase):
             return reply
 
         self.assertEqual(self.run_async(scenario)["reason"], "unavailable")
+
+    def test_reading_on_one_device_clears_the_badge_on_the_other_but_not_the_partners(self):
+        message = services.send(self.ben, self.couple.pk, "Unread", None)
+        ann_cookie_2 = cookie_for(self.ann)
+
+        async def scenario(app):
+            (phone, first), (b, _) = await self.open(app, "ann"), await self.open(app, "ben")
+            laptop = self.page(app, ann_cookie_2)
+            assert (await laptop.connect())[0]
+            await laptop.receive_json_from(timeout=2)
+            await phone.send_json_to({"type": "read", "upTo": message.pk})
+            got_phone, got_laptop, got_ben = await self.everything(phone), await self.everything(laptop), \
+                await self.everything(b)
+            for page in [phone, laptop, b]:
+                await page.disconnect()
+            return first, got_phone, got_laptop, got_ben
+
+        first, got_phone, got_laptop, got_ben = self.run_async(scenario)
+        self.assertEqual(first["unread"], 1)
+        self.assertEqual(got_laptop, [{"type": "read", "upTo": message.pk}])
+        self.assertEqual(got_phone, [{"type": "read", "upTo": message.pk}])
+        self.assertEqual(got_ben, [])

@@ -14,7 +14,7 @@ from django.utils import timezone
 from couples.models import Membership
 
 from . import crypto
-from .groups import chat_group_name
+from .groups import chat_group_name, chat_reader_group_name
 from .models import ChatMessage
 
 MAX_LENGTH = 1000
@@ -88,18 +88,46 @@ def message_for(user, couple_id, message_id):
 
 
 def history(user, couple_id, before=None):
-    """The PAGE_SIZE messages before `before` (a message id), oldest first."""
-    membership(user, couple_id)
+    """The PAGE_SIZE messages before `before` (a message id), oldest first.
+    The latest page also says who the partner is and what's unread."""
+    member = membership(user, couple_id)
     messages = ChatMessage.objects.filter(couple_id=couple_id)
     if before is not None:
         if type(before) is not int or before < 1:
             raise Invalid("Bad history cursor.")
         messages = messages.filter(pk__lt=before)
     page = list(messages.order_by("-id")[: PAGE_SIZE + 1])
-    return {
+    result = {
         "messages": [serialize(m, user) for m in reversed(page[:PAGE_SIZE])],
         "has_more": len(page) > PAGE_SIZE,
     }
+    if before is None:
+        unread = ChatMessage.objects.filter(couple_id=couple_id).exclude(author=user)
+        if member.chat_read_up_to is not None:
+            unread = unread.filter(pk__gt=member.chat_read_up_to)
+        partner = (Membership.objects.active().filter(couple_id=couple_id).exclude(user=user)
+                   .select_related("user").first())
+        result.update(lastRead=member.chat_read_up_to, unread=unread.count(),
+                      partner=partner.user.name_for_partner if partner else "")
+    return result
+
+
+def mark_read(user, couple_id, up_to):
+    """Move this member's read marker forward to `up_to` (a message id),
+    never back and never past the newest message."""
+    if type(up_to) is not int or up_to < 1:
+        raise Invalid("Bad read marker.")
+    with transaction.atomic():
+        member = membership(user, couple_id, lock=True)
+        newest = ChatMessage.objects.filter(couple_id=couple_id).order_by("-id").values_list("pk", flat=True).first()
+        if newest is None:
+            return
+        up_to = min(up_to, newest)
+        if member.chat_read_up_to is not None and up_to <= member.chat_read_up_to:
+            return
+        member.chat_read_up_to = up_to
+        member.save(update_fields=["chat_read_up_to"])
+        transaction.on_commit(partial(notify_reader, user.pk, {"type": "chat.read", "upTo": up_to}))
 
 
 def delete(user, couple_id, message_id):
@@ -135,6 +163,12 @@ def notify_couple(couple_id, event):
     layer = get_channel_layer()
     if layer is not None:
         async_to_sync(layer.group_send)(chat_group_name(couple_id), event)
+
+
+def notify_reader(user_id, event):
+    layer = get_channel_layer()
+    if layer is not None:
+        async_to_sync(layer.group_send)(chat_reader_group_name(user_id), event)
 
 
 def notify_chat_closed(couple_id):

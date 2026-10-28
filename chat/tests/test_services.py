@@ -175,3 +175,52 @@ class ClosedCoupleTests(ChatServiceTestCase):
 
     def test_messages_are_not_in_the_admin(self):
         self.assertFalse(any(model._meta.app_label == "chat" for model in admin.site._registry))
+
+
+class ReadMarkerTests(ChatServiceTestCase):
+    def membership(self, user):
+        return services.membership(user, self.couple.pk)
+
+    def test_new_members_have_read_nothing_and_count_only_partner_messages(self):
+        self.send(self.ann, "Mine")
+        self.send(self.ben, "One")
+        self.send(self.ben, "Two")
+        start = services.history(self.ann, self.couple.pk)
+        self.assertEqual((start["lastRead"], start["unread"]), (None, 2))
+        self.assertEqual(start["partner"], "Ben")
+
+    def test_marking_read_moves_the_marker_and_clears_the_count(self):
+        self.send(self.ben, "One")
+        last = self.send(self.ben, "Two")
+        services.mark_read(self.ann, self.couple.pk, last.pk)
+        self.assertEqual(self.membership(self.ann).chat_read_up_to, last.pk)
+        self.assertEqual(services.history(self.ann, self.couple.pk)["unread"], 0)
+        self.send(self.ben, "Three")
+        self.assertEqual(services.history(self.ann, self.couple.pk)["unread"], 1)
+
+    def test_the_marker_never_moves_back_or_past_the_newest_message(self):
+        first = self.send(self.ben, "One")
+        last = self.send(self.ben, "Two")
+        services.mark_read(self.ann, self.couple.pk, last.pk)
+        services.mark_read(self.ann, self.couple.pk, first.pk)
+        self.assertEqual(self.membership(self.ann).chat_read_up_to, last.pk)
+        services.mark_read(self.ann, self.couple.pk, last.pk + 1000)
+        self.assertEqual(self.membership(self.ann).chat_read_up_to, last.pk)
+
+    def test_bad_markers_are_refused(self):
+        for bad in ["x", -1, 1.5, None, True]:
+            with self.subTest(bad), self.assertRaises(services.Invalid):
+                services.mark_read(self.ann, self.couple.pk, bad)
+
+    def test_only_your_own_devices_hear_about_it_never_your_partner(self):
+        last = self.send(self.ben, "One")
+        with mock.patch("chat.services.notify_reader") as reader, \
+                mock.patch("chat.services.notify_couple") as couple, self.captureOnCommitCallbacks(execute=True):
+            services.mark_read(self.ann, self.couple.pk, last.pk)
+        reader.assert_called_once_with(self.ann.pk, {"type": "chat.read", "upTo": last.pk})
+        couple.assert_not_called()  # No read receipts.
+
+    def test_outsiders_cannot_mark(self):
+        _, (cy,) = make_couple("cy@example.com")
+        with self.assertRaises(services.Forbidden):
+            services.mark_read(cy, self.couple.pk, 1)
