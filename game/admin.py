@@ -13,5 +13,17 @@ class QuestionAdmin(admin.ModelAdmin):
 
 @admin.register(CustomQuestion)
 class CustomQuestionAdmin(admin.ModelAdmin):
-    list_display = ["__str__", "mode", "kind", "created_at"]
+    """Couples' own questions can be intimate, so admins never see their
+    text: only ids, the couple, mode and kind. There is no search either
+    (it would let an admin probe the text), and no adding or editing."""
+
+    list_display = ["__str__", "space", "mode", "kind", "created_at"]
     list_filter = ["mode", "kind"]
+    exclude = ["text"]
+    readonly_fields = ["space", "mode", "kind", "created_at"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

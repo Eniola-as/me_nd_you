@@ -13,10 +13,15 @@ class MembershipInline(admin.TabularInline):
 
 @admin.register(Couple)
 class CoupleAdmin(admin.ModelAdmin):
-    list_display = ["__str__", "created_at", "closed_at"]
-    readonly_fields = ["id", "created_at", "closed_at", "closed_by"]
+    list_display = ["__str__", "created_at", "closed_at", "custom_question_count"]
+    readonly_fields = ["id", "created_at", "closed_at", "closed_by", "custom_question_count"]
     inlines = [MembershipInline]
     actions = ["reopen_couples"]
+
+    @admin.display(description="Custom questions")
+    def custom_question_count(self, couple):
+        # A count only: admins never see the questions' text.
+        return couple.custom_questions.count()
 
     @admin.action(description="Reopen selected closed couples")
     def reopen_couples(self, request, queryset):

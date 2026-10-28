@@ -48,4 +48,6 @@ class CustomQuestion(models.Model):
         ]
 
     def __str__(self):
-        return f"Custom in {self.space}: {self.text[:50]}"
+        # Never the text: this label appears across the admin (lists, delete
+        # confirmations, its history log), and custom questions can be intimate.
+        return f"Custom question #{self.pk} ({self.mode})"
