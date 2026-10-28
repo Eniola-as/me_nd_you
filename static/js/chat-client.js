@@ -15,7 +15,19 @@
     });
   }
 
-  function createChatClient({ url, onChange = () => {}, newRequestId = defaultRequestId, ...socketOptions }) {
+  const TYPING_EVERY_MS = 3000; // Send "typing" at most this often.
+  const TYPING_SHOWN_MS = 5000; // Show the partner as typing this long.
+
+  function createChatClient({
+    url,
+    onChange = () => {},
+    newRequestId = defaultRequestId,
+    // Where this page is, for the partner's presence line: "space",
+    // "menu" or "play:<mode>". Sent on every (re)connection.
+    where = null,
+    now = () => Date.now(),
+    ...socketOptions
+  }) {
     let messages = []; // From the server, sorted by id.
     let pending = []; // { requestId, text, failed }, shown after messages.
     let hasMore = false;
@@ -26,11 +38,18 @@
     let closed = false;
     let error = null;
     let connected = false;
+    let presence = { online: false, where: null, lastSeen: null };
+    let partnerTypingUntil = 0;
+    let lastTypingSent = -Infinity;
+    const schedule = socketOptions.schedule || ((fn, ms) => setTimeout(fn, ms));
 
     const socket = socketModule.createSocketClient({
       url,
       ...socketOptions,
       onMessage: handle,
+      onOpen() {
+        if (where) socket.send({ type: "presence", where });
+      },
     });
 
     function newest() {
@@ -76,8 +95,15 @@
           if (!data.has_more) hasMore = false;
           upsert(data.messages);
         }
+      } else if (data.type === "presence" && data.partner) {
+        presence = { online: Boolean(data.partner.online), where: data.partner.where ?? null,
+                     lastSeen: data.partner.lastSeen ?? null };
+      } else if (data.type === "typing") {
+        partnerTypingUntil = now() + TYPING_SHOWN_MS;
+        schedule(() => onChange(), TYPING_SHOWN_MS + 50);
       } else if (data.type === "message" && data.message) {
         const m = data.message;
+        if (!m.mine) partnerTypingUntil = 0;
         const known = messages.some((x) => x.id === m.id);
         if (m.requestId) pending = pending.filter((p) => p.requestId !== m.requestId);
         upsert([m]);
@@ -117,6 +143,12 @@
       return true;
     }
 
+    function typing() {
+      if (closed || now() - lastTypingSent < TYPING_EVERY_MS) return;
+      lastTypingSent = now();
+      socket.send({ type: "typing" });
+    }
+
     function remove(id) {
       socket.send({ type: "delete", id });
     }
@@ -131,9 +163,16 @@
       onChange();
     }
 
+    function disconnect() {
+      connected = false;
+      socket.close();
+    }
+
     return {
       connect: () => socket.connect(),
+      disconnect,
       send,
+      typing,
       remove,
       loadOlder,
       setOpen,
@@ -150,6 +189,8 @@
           closed,
           connected,
           error,
+          presence: { ...presence },
+          partnerTyping: now() < partnerTypingUntil,
         };
       },
     };

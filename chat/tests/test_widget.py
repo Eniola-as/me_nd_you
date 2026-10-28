@@ -73,3 +73,23 @@ class WidgetTests(TestCase):
         widget = html[html.index('id="chat-panel"'):]
         self.assertIn("Delete for both?", widget)
         self.assertNotIn("confirm(", widget)
+
+    def test_each_page_says_where_you_are_for_presence(self):
+        expected = {"/space/": 'data-chat-where="space"', "/modes/": 'data-chat-where="menu"',
+                    "/play/?mode=truth": 'data-chat-where="play"'}
+        for page, attribute in expected.items():
+            with self.subTest(page):
+                self.assertIn(attribute, self.client.get(page).content.decode())
+
+    def test_it_shows_presence_and_typing(self):
+        html = self.client.get("/modes/").content.decode()
+        for element in ['id="chat-presence"', 'id="chat-typing"', 'id="chat-dot"']:
+            self.assertIn(element, html)
+        for words in ["In your space", "Playing ", "Last seen", "is typing"]:
+            self.assertIn(words, html)
+
+    def test_leaving_a_page_closes_its_chat_connection(self):
+        # Otherwise a page kept in the back/forward cache keeps you "online".
+        html = self.client.get("/modes/").content.decode()
+        self.assertIn('addEventListener("pagehide", () => chat.disconnect())', html)
+        self.assertIn('addEventListener("pageshow"', html)

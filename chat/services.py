@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from couples.models import Membership
 
-from . import crypto
+from . import crypto, presence
 from .groups import chat_group_name, chat_reader_group_name
 from .models import ChatMessage
 
@@ -163,6 +163,23 @@ def notify_couple(couple_id, event):
     layer = get_channel_layer()
     if layer is not None:
         async_to_sync(layer.group_send)(chat_group_name(couple_id), event)
+
+
+def partner_presence(user, couple_id):
+    """Where the partner is: online (and where) from the live connections,
+    otherwise when they were last seen."""
+    membership(user, couple_id)
+    partner = Membership.objects.active().filter(couple_id=couple_id).exclude(user=user).first()
+    if partner is None:
+        return {"online": False, "where": None, "lastSeen": None}
+    live = presence.status(partner.user_id)
+    seen = partner.last_seen_at.isoformat() if partner.last_seen_at and not live["online"] else None
+    return {**live, "lastSeen": seen}
+
+
+def mark_seen(user, couple_id):
+    """Store "last seen" when a member's last chat connection closes."""
+    Membership.objects.active().filter(user=user, couple_id=couple_id).update(last_seen_at=timezone.now())
 
 
 def notify_reader(user_id, event):

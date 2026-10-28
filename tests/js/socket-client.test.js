@@ -143,3 +143,29 @@ test("a send while offline after giving up starts a fresh attempt", () => {
   client.send({ n: 1 });
   assert.equal(sockets.length, 3);
 });
+
+test("close() closes the socket and doesn't reconnect; connect() starts again", () => {
+  const { client, sockets, runTimers, timers } = setup();
+  client.connect();
+  sockets[0].close = function () {
+    this.readyState = 3;
+    this.onclose?.({ code: 1000 });
+  };
+  sockets[0].open();
+  client.close();
+  assert.equal(sockets[0].readyState, 3);
+  runTimers();
+  assert.equal(sockets.length, 1);
+  assert.equal(timers.length, 0);
+  client.connect();
+  assert.equal(sockets.length, 2);
+});
+
+test("close() during a pending reconnect cancels it", () => {
+  const { client, sockets, runTimers } = setup();
+  client.connect();
+  sockets[0].fail(); // A reconnect is now scheduled.
+  client.close();
+  runTimers();
+  assert.equal(sockets.length, 1);
+});

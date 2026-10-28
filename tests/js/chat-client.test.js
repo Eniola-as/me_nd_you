@@ -173,3 +173,59 @@ test("losing access closes the chat", () => {
   socket().receive({ type: "error", reason: "forbidden", detail: "You no longer have access to this chat." });
   assert.equal(chat.state.closed, true);
 });
+
+test("the partner's presence is kept as the server sends it", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([]));
+  socket().receive({ type: "presence", partner: { online: true, where: "play:truth", lastSeen: null } });
+  assert.deepEqual(chat.state.presence, { online: true, where: "play:truth", lastSeen: null });
+});
+
+test("the page says where it is when it connects and when told", () => {
+  FakeSocket.instances = [];
+  const chat = createChatClient({ url: "ws://t/", where: "space", WebSocketImpl: FakeSocket, schedule: () => {} });
+  chat.connect();
+  FakeSocket.instances[0].open();
+  assert.deepEqual(FakeSocket.instances[0].sent[0], { type: "presence", where: "space" });
+});
+
+test("typing is sent at most every 3 seconds", () => {
+  let now = 0;
+  FakeSocket.instances = [];
+  const chat = createChatClient({ url: "ws://t/", WebSocketImpl: FakeSocket, schedule: () => {}, now: () => now });
+  chat.connect();
+  FakeSocket.instances[0].open();
+  chat.typing();
+  now = 1000;
+  chat.typing();
+  now = 3500;
+  chat.typing();
+  assert.equal(FakeSocket.instances[0].sent.filter((m) => m.type === "typing").length, 2);
+});
+
+test("the partner shows as typing for 5 seconds, or until their message arrives", () => {
+  let now = 0;
+  FakeSocket.instances = [];
+  const chat = createChatClient({ url: "ws://t/", WebSocketImpl: FakeSocket, schedule: () => {}, now: () => now });
+  chat.connect();
+  const socket = FakeSocket.instances[0];
+  socket.open();
+  socket.receive(initial([]));
+  socket.receive({ type: "typing" });
+  assert.equal(chat.state.partnerTyping, true);
+  now = 5100;
+  assert.equal(chat.state.partnerTyping, false);
+  socket.receive({ type: "typing" });
+  socket.receive({ type: "message", message: msg(1, "Done") });
+  assert.equal(chat.state.partnerTyping, false);
+});
+
+test("disconnect() closes the chat socket, for pages being left", () => {
+  const { chat, socket } = setup();
+  let closed = false;
+  socket().close = () => { closed = true; };
+  socket().receive(initial([]));
+  chat.disconnect();
+  assert.equal(closed, true);
+  assert.equal(chat.state.connected, false);
+});

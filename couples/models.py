@@ -43,6 +43,8 @@ class Membership(models.Model):
     # The newest chat message this member has seen (for the unread badge).
     # Private to them: the partner is never told (no read receipts).
     chat_read_up_to = models.BigIntegerField(null=True, blank=True)
+    # When this member's last chat connection closed ("Last seen ...").
+    last_seen_at = models.DateTimeField(null=True, blank=True)
 
     objects = MembershipQuerySet.as_manager()
 

@@ -4,6 +4,7 @@ couple closes or a password is reset."""
 
 import asyncio
 import importlib
+import json
 import uuid
 
 from asgiref.sync import async_to_sync
@@ -55,13 +56,27 @@ class ChatSocketTests(TransactionTestCase):
         page = self.page(app, self.cookies[who])
         connected, _ = await page.connect()
         assert connected, who
-        return page, await page.receive_json_from(timeout=2)
+        return page, await self.next_frame(page)
+
+    @staticmethod
+    async def next_frame(page, timeout=2):
+        """The next message other than presence and typing (those are
+        tested in test_presence), or the close."""
+        while True:
+            output = await page.receive_output(timeout=timeout)
+            if output["type"] != "websocket.send":
+                return output
+            data = json.loads(output["text"])
+            if data["type"] not in ("presence", "typing"):
+                return data
 
     @staticmethod
     async def everything(page, timeout=1):
         messages = []
         while not await page.receive_nothing(timeout=timeout):
-            messages.append(await page.receive_json_from(timeout=timeout))
+            data = await page.receive_json_from(timeout=timeout)
+            if data["type"] not in ("presence", "typing"):
+                messages.append(data)
         return messages
 
     def test_connecting_sends_the_recent_history(self):
@@ -114,7 +129,7 @@ class ChatSocketTests(TransactionTestCase):
         async def scenario(app):
             other = self.page(app, cy_cookie)
             assert (await other.connect())[0]
-            first = await other.receive_json_from(timeout=2)
+            first = await self.next_frame(other)
             a, _ = await self.open(app, "ann")
             await a.send_json_to(send("Only for Ben"))
             got = await self.everything(other)
@@ -162,7 +177,7 @@ class ChatSocketTests(TransactionTestCase):
         async def scenario(app):
             page, first = await self.open(app, "ann")
             await page.send_json_to({"type": "history", "before": first["messages"][0]["id"]})
-            older = await page.receive_json_from(timeout=2)
+            older = await self.next_frame(page)
             await page.disconnect()
             return first, older
 
@@ -194,8 +209,8 @@ class ChatSocketTests(TransactionTestCase):
             await asyncio.get_running_loop().run_in_executor(None, couples.close_couple, self.ann)
             replies = []
             for page in [a, b]:
-                replies.append(await page.receive_json_from(timeout=2))
-                replies.append(await page.receive_output(timeout=2))
+                replies.append(await self.next_frame(page))
+                replies.append(await self.next_frame(page))
             again = self.page(app, self.cookies["ben"])
             reconnected, _ = await again.connect()
             return replies, reconnected
@@ -212,8 +227,8 @@ class ChatSocketTests(TransactionTestCase):
             await asyncio.get_running_loop().run_in_executor(
                 None, lambda: Membership.objects.filter(user=self.ben).update(left_at="2026-10-28T00:00:00Z"))
             await b.send_json_to(send("Am I still here?"))
-            reply = await b.receive_json_from(timeout=2)
-            closed = await b.receive_output(timeout=2)
+            reply = await self.next_frame(b)
+            closed = await self.next_frame(b)
             await a.send_json_to(send("Ann's message"))
             ann_got = await self.everything(a)
             await a.disconnect()
@@ -228,9 +243,9 @@ class ChatSocketTests(TransactionTestCase):
         async def scenario(app):
             (a, _), (b, _) = await self.open(app, "ann"), await self.open(app, "ben")
             await asyncio.get_running_loop().run_in_executor(None, sign_out_everywhere, self.ann)
-            reply = await a.receive_json_from(timeout=2)
-            closed = await a.receive_output(timeout=2)
-            ben_quiet = await b.receive_nothing(timeout=0.5)
+            reply = await self.next_frame(a)
+            closed = await self.next_frame(a)
+            ben_quiet = not await self.everything(b, timeout=0.5)
             await b.disconnect()
             return reply, closed, ben_quiet
 
@@ -243,7 +258,7 @@ class ChatSocketTests(TransactionTestCase):
             page, _ = await self.open(app, "ann")
             with override_settings(CHAT_ENCRYPTION_KEYS=[]):
                 await page.send_json_to(send("Hi"))
-                reply = await page.receive_json_from(timeout=2)
+                reply = await self.next_frame(page)
             await page.disconnect()
             return reply
 
@@ -257,7 +272,7 @@ class ChatSocketTests(TransactionTestCase):
             (phone, first), (b, _) = await self.open(app, "ann"), await self.open(app, "ben")
             laptop = self.page(app, ann_cookie_2)
             assert (await laptop.connect())[0]
-            await laptop.receive_json_from(timeout=2)
+            await self.next_frame(laptop)
             await phone.send_json_to({"type": "read", "upTo": message.pk})
             got_phone, got_laptop, got_ben = await self.everything(phone), await self.everything(laptop), \
                 await self.everything(b)

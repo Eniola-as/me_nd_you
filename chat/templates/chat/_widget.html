@@ -59,6 +59,29 @@
   #chat-badge[hidden] {
     display: none;
   }
+  /* The partner is online. */
+  #chat-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #3ddc84;
+    border: 2px solid #0d0d0d;
+  }
+  #chat-dot[hidden] {
+    display: none;
+  }
+  #chat-typing {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #aaa;
+    font-style: italic;
+  }
+  #chat-typing[hidden] {
+    display: none;
+  }
   #chat-panel {
     position: fixed;
     right: 16px;
@@ -246,11 +269,13 @@
   }
 </style>
 
-<button type="button" id="chat-fab" aria-label="Chat" aria-expanded="false" aria-controls="chat-panel">
+<button type="button" id="chat-fab" aria-label="Chat" aria-expanded="false" aria-controls="chat-panel"
+        data-chat-where="{{ where }}">
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z" />
   </svg>
   <span id="chat-badge" aria-hidden="true" hidden>0</span>
+  <span id="chat-dot" aria-hidden="true" hidden></span>
 </button>
 
 <section id="chat-panel" aria-labelledby="chat-title" hidden>
@@ -265,6 +290,7 @@
     <button type="button" id="chat-older" hidden>Load older messages</button>
     <ol id="chat-messages" role="log" aria-live="polite"></ol>
     <p id="chat-empty" hidden>No messages yet. Say hi 👋</p>
+    <p id="chat-typing" aria-live="polite" hidden></p>
   </div>
   <p id="chat-error" role="alert" hidden></p>
   <form id="chat-form">
@@ -290,12 +316,27 @@
     const form = document.getElementById("chat-form");
     const input = document.getElementById("chat-input");
     const sendButton = document.getElementById("chat-send");
+    const presenceLine = document.getElementById("chat-presence");
+    const dot = document.getElementById("chat-dot");
+    const typingLine = document.getElementById("chat-typing");
+    const MODE_NAMES = {
+      questions: "Questions",
+      truth: "Truth or Dare",
+      challenge: "Challenge",
+      spicy: "Spicy Only",
+      mixed: "Mixed Mode",
+      would: "Would You Rather",
+    };
+    // This page, for the partner's presence line.
+    let where = fab.dataset.chatWhere || null;
+    if (where === "play") where = `play:${new URLSearchParams(location.search).get("mode")}`;
     const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
     let open = false;
 
     const chat = createChatClient({
       url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws/chat/`,
       onChange: render,
+      where,
     });
     window.chatWidget = chat; // For the browser tests.
 
@@ -322,6 +363,7 @@
       e.preventDefault();
       if (chat.send(input.value)) input.value = "";
     });
+    input.addEventListener("input", () => chat.typing());
     input.addEventListener("keydown", (e) => {
       // Enter sends; Shift+Enter starts a new line.
       if (e.key === "Enter" && !e.shiftKey) {
@@ -344,11 +386,32 @@
       empty.hidden = state.items.length > 0 || !state.connected;
       items.replaceChildren(...state.items.map(renderItem));
 
+      presenceLine.textContent = describePresence(state.presence);
+      dot.hidden = !state.presence.online;
+      typingLine.hidden = !state.partnerTyping;
+      typingLine.textContent = `${state.partner || "Your partner"} is typing…`;
+
       errorLine.hidden = !(state.error || state.closed);
       errorLine.textContent = state.closed ? "Chat is no longer available." : state.error || "";
       input.disabled = sendButton.disabled = state.closed;
       if (atBottom) list.scrollTop = list.scrollHeight;
     }
+
+    function describePresence({ online, where, lastSeen }) {
+      if (online) {
+        if (where === "space") return "In your space";
+        if (where && where.startsWith("play:")) return `Playing ${MODE_NAMES[where.slice(5)] || "a game"}`;
+        return "Online";
+      }
+      if (!lastSeen) return "";
+      const minutes = Math.round((Date.now() - new Date(lastSeen)) / 60000);
+      if (minutes < 1) return "Last seen just now";
+      if (minutes < 60) return `Last seen ${minutes} min ago`;
+      const hours = Math.round(minutes / 60);
+      if (hours < 24) return `Last seen ${hours} h ago`;
+      return `Last seen ${new Date(lastSeen).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+    }
+    setInterval(render, 30000); // Keep "Last seen ... ago" current.
 
     // "Delete", then "Delete for both? Yes / No", inside the panel.
     let confirmingDelete = null;
@@ -389,6 +452,14 @@
       li.append(bubble, meta);
       return li;
     }
+
+    // Browsers may keep a page they're leaving (back/forward cache) with its
+    // socket open, which would keep you "online" there. Close it when the
+    // page is hidden, and reconnect if the page comes back.
+    window.addEventListener("pagehide", () => chat.disconnect());
+    window.addEventListener("pageshow", (e) => {
+      if (e.persisted) chat.connect();
+    });
 
     chat.connect();
   })();

@@ -73,5 +73,5 @@
   </form>
 {% endblock %}
 {% block after_card %}
-  {% if membership %}{% include "chat/_widget.html" with load_socket=True %}{% endif %}
+  {% if membership %}{% include "chat/_widget.html" with load_socket=True where="space" %}{% endif %}
 {% endblock %}

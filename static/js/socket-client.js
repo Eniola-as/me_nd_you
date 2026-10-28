@@ -17,9 +17,11 @@
     let socket = null;
     let attempts = 0;
     let retryPending = false;
+    let stopped = false; // close() was called: don't reconnect.
     const queue = [];
 
     function connect() {
+      stopped = false;
       if (socket || retryPending) return;
       socket = new WebSocketImpl(url);
       socket.onopen = () => {
@@ -40,7 +42,7 @@
       // An error is always followed by close, so reconnecting happens there.
       socket.onclose = () => {
         socket = null;
-        scheduleReconnect();
+        if (!stopped) scheduleReconnect();
       };
     }
 
@@ -51,7 +53,7 @@
       attempts++;
       schedule(() => {
         retryPending = false;
-        connect();
+        if (!stopped) connect();
       }, delay);
     }
 
@@ -79,8 +81,19 @@
       }
     }
 
+    // Close on purpose (e.g. the page is being left) without reconnecting.
+    function close() {
+      stopped = true;
+      if (socket) {
+        const closing = socket;
+        socket = null;
+        closing.close();
+      }
+    }
+
     return {
       connect,
+      close,
       send,
       get queueLength() {
         return queue.length;

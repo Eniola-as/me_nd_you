@@ -9,6 +9,11 @@ Protocol (JSON):
   {"type": "history", "before": n}  (older messages)
   {"type": "read", "upTo": n}  (moves your unread marker; only your own
   other connections hear about it, never your partner)
+  {"type": "presence", "where": "space" | "menu" | "play:<mode>"}
+  {"type": "typing"}  (never stored)
+- server -> one member about the other: {"type": "presence", "partner":
+  {"online": bool, "where": ..., "lastSeen": iso | null}} and
+  {"type": "typing"}.
 - server -> both members: {"type": "message", "message": {...}} and
   {"type": "deleted", "id": n}.
 - server -> sender only: {"type": "error", "reason": "invalid" |
@@ -26,6 +31,8 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from play.groups import user_group_name
+
+from . import presence
 
 MAX_MESSAGE_CHARS = 5_000
 FORBIDDEN_CLOSE_CODE = 4403
@@ -71,11 +78,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_add(group, self.channel_name)
         await self.accept()
         await self.send_json({"type": "history", "initial": True, **history})
+        presence.join(self.user.pk, self.channel_name)
+        await self.announce()
+        await self.send_partner_presence()
 
     async def disconnect(self, close_code):
         for group in (self.group, self.user_group, self.reader_group):
             if group:
                 await self.channel_layer.group_discard(group, self.channel_name)
+        if self.couple_id:
+            from . import services
+
+            # Another open connection may still say where they are.
+            if presence.leave(self.user.pk, self.channel_name):
+                await call(services.mark_seen, self.user, self.couple_id)
+            await self.announce()
 
     async def receive(self, text_data=None, bytes_data=None):
         from . import crypto, services
@@ -90,6 +107,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await call(services.send, self.user, self.couple_id, message.get("text"), message.get("requestId"))
             elif message["type"] == "delete":
                 await call(services.delete, self.user, self.couple_id, message.get("id"))
+            elif message["type"] == "presence":
+                if not presence.valid_where(message.get("where")):
+                    raise services.Invalid("Unknown place.")
+                await call(services.membership, self.user, self.couple_id)
+                presence.update(self.user.pk, self.channel_name, message["where"])
+                await self.announce()
+            elif message["type"] == "typing":
+                await call(services.membership, self.user, self.couple_id)
+                await self.channel_layer.group_send(self.group, {"type": "chat.typing", "user": self.user.pk})
             elif message["type"] == "read":
                 await call(services.mark_read, self.user, self.couple_id, message.get("upTo"))
             elif message["type"] == "history":
@@ -129,6 +155,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         await self.send_json({"type": "deleted", "id": event["id"]})
 
+    async def chat_presence(self, event):
+        """The other member's presence changed: send them as this user may
+        see them (membership re-checked)."""
+        if event["user"] != self.user.pk:
+            await self.send_partner_presence()
+
+    async def chat_typing(self, event):
+        from . import services
+
+        if event["user"] == self.user.pk:
+            return
+        try:
+            await call(services.membership, self.user, self.couple_id)
+        except services.Forbidden:
+            await self.revoke()
+            return
+        await self.send_json({"type": "typing"})
+
+    async def announce(self):
+        await self.channel_layer.group_send(self.group, {"type": "chat.presence", "user": self.user.pk})
+
+    async def send_partner_presence(self):
+        from . import services
+
+        try:
+            partner = await call(services.partner_presence, self.user, self.couple_id)
+        except services.Forbidden:
+            await self.revoke()
+            return
+        await self.send_json({"type": "presence", "partner": partner})
+
     async def chat_read(self, event):
         await self.send_json({"type": "read", "upTo": event["upTo"]})
 
@@ -156,6 +213,6 @@ def _parse(text_data):
         message = json.loads(text_data)
     except ValueError:
         return None
-    if not isinstance(message, dict) or message.get("type") not in {"send", "delete", "history", "read"}:
+    if not isinstance(message, dict) or message.get("type") not in {"send", "delete", "history", "read", "presence", "typing"}:
         return None
     return message
