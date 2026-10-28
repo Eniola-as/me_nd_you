@@ -20,9 +20,13 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from accounts.views import legal_page
+
 urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     path("accounts/", include("accounts.urls")),
+    path("privacy/", legal_page, {"page": "privacy"}, name="privacy"),
+    path("terms/", legal_page, {"page": "terms"}, name="terms"),
     path("", include("couples.urls")),
     path("", include("game.urls")),
 ]

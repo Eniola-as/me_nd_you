@@ -21,10 +21,7 @@
     <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}" />
     <meta name="theme-color" content="#111111" />
 
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+    {% include "accounts/_font.html" %}
     <style>
       :root {
         --bg: #0d0d0d;
@@ -384,6 +381,8 @@
       <p>3. Add your own questions anytime</p>
       <button type="button" onclick="closeGuide()">Got it!</button>
     </dialog>
+
+    {% include "accounts/_footer.html" %}
 
     <script src="{% static 'js/socket-client.js' %}"></script>
     <script src="{% static 'js/room-client.js' %}"></script>

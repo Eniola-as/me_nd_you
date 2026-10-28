@@ -46,6 +46,10 @@ services:
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
+      # Shown on the privacy policy and terms; check accounts.W004 warns
+      # while it's missing.
+      - key: PRIVACY_CONTACT_EMAIL
+        sync: false
       # Chat encryption key(s), comma-separated, first one encrypts. The app
       # refuses to start without one. LOSING IT LOSES EVERY CHAT MESSAGE:
       # keep a copy outside Render (docs/DEPLOYMENT.md).

@@ -12,10 +12,7 @@
     <link rel="icon" type="image/png" href="{% static 'icons/icon-192.png' %}" />
     <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}" />
     <meta name="theme-color" content="#e75480" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+    {% include "accounts/_font.html" %}
     <style>
       /* Shared by the account and couple pages; same look as the login page. */
       :root {
@@ -173,6 +170,47 @@
         background: none;
         color: var(--accent-hover);
       }
+      /* Long reading pages (privacy policy, terms). */
+      .card.wide {
+        max-width: 760px;
+      }
+      .wide h2 {
+        margin-top: 28px;
+      }
+      .wide h3 {
+        font-size: 16px;
+        margin: 20px 0 6px;
+      }
+      .wide li {
+        color: #ddd;
+        line-height: 1.5;
+        margin-bottom: 6px;
+      }
+      .wide .table-scroll {
+        overflow-x: auto;
+      }
+      .wide table {
+        border-collapse: collapse;
+        font-size: 14px;
+        color: #ddd;
+      }
+      .wide th,
+      .wide td {
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      .draft-banner {
+        border: 1px dashed #f5c542;
+        color: #f5c542;
+        border-radius: 10px;
+        padding: 10px 14px;
+        text-align: center;
+      }
+      .draft-note {
+        color: #f5c542;
+      }
       .invite-url {
         word-break: break-all;
         background: #1e1e1e;
@@ -183,7 +221,7 @@
     </style>
   </head>
   <body>
-    <main class="card">
+    <main class="card{% block card_class %}{% endblock %}">
       {% if messages %}
         <ul class="messages" role="status">
           {% for message in messages %}
@@ -193,6 +231,7 @@
       {% endif %}
       {% block content %}{% endblock %}
     </main>
+    {% include "accounts/_footer.html" %}
     {# Outside the card: its backdrop-filter would pin "fixed" elements to it. #}
     {% block after_card %}{% endblock %}
   </body>

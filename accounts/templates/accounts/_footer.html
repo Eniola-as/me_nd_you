@@ -1,0 +1,25 @@
+{% comment %}
+  Links to the privacy policy and terms, at the end of every page's content
+  (the chat widget's page padding keeps it clear of the chat icon).
+{% endcomment %}
+<style>
+  .site-footer {
+    width: 100%;
+    margin-top: 24px;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+  }
+  .site-footer a {
+    color: #aaa;
+    margin: 0 8px;
+  }
+  .site-footer a:hover {
+    color: #fff;
+  }
+</style>
+<footer class="site-footer">
+  <a href="{% url 'privacy' %}">Privacy</a>
+  <a href="{% url 'terms' %}">Terms</a>
+</footer>

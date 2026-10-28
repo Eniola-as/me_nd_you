@@ -18,6 +18,7 @@ SETTINGS_ENV_KEYS = [
     "EMAIL_PROVIDER",
     "EMAIL_API_KEY",
     "DEFAULT_FROM_EMAIL",
+    "PRIVACY_CONTACT_EMAIL",
     "CHAT_ENCRYPTION_KEYS",
     # A test run with --settings exports this; children must load the real
     # settings module.

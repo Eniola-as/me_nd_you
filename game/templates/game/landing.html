@@ -25,10 +25,7 @@
     <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}" />
     <meta name="theme-color" content="#e75480" />
 
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+    {% include "accounts/_font.html" %}
 
     <style>
       :root {
@@ -280,6 +277,8 @@
         </div>
       </div>
     </div>
+
+    {% include "accounts/_footer.html" %}
 
     <script>
       // PWA Installation

@@ -1,5 +1,6 @@
 from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
@@ -80,6 +81,16 @@ def profile(request):
         messages.success(request, "Your name is updated.")
         return redirect("/space/")
     return render(request, "accounts/profile.html", {"form": form})
+
+
+@require_http_methods(["GET"])
+def legal_page(request, page):
+    """The privacy policy or the terms of use (public pages)."""
+    return render(request, f"accounts/{page}.html", {
+        "contact_email": settings.PRIVACY_CONTACT_EMAIL or "[contact email not set yet]",
+        "policy_version": settings.POLICY_VERSION,
+        "is_draft": "draft" in settings.POLICY_VERSION.lower(),
+    })
 
 
 class EmailLoginView(LoginView):

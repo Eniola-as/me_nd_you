@@ -32,3 +32,18 @@ def check_email_delivery(app_configs, **kwargs):
             )
         )
     return warnings
+
+
+@register(Tags.security, deploy=True)
+def check_privacy_contact(app_configs, **kwargs):
+    """The privacy policy must tell people where to send privacy requests."""
+    if not settings.PRIVACY_CONTACT_EMAIL:
+        return [
+            Warning(
+                "PRIVACY_CONTACT_EMAIL is not set, so the privacy policy and terms "
+                "show no contact address.",
+                hint="Set PRIVACY_CONTACT_EMAIL to the address that answers privacy requests.",
+                id="accounts.W004",
+            )
+        ]
+    return []

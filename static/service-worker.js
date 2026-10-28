@@ -1,5 +1,5 @@
 // Bump the version whenever cached files change so old caches are dropped.
-const CACHE_NAME = "couple-game-cache-v2";
+const CACHE_NAME = "couple-game-cache-v3";
 const urlsToCache = [
   "/static/manifest.json",
   "/static/icons/icon-192.png",
@@ -64,23 +64,6 @@ self.addEventListener("fetch", event => {
     url.startsWith("about:")
   ) {
     console.warn("Ignoring unsupported request:", url);
-    return;
-  }
-
-  // Handle Google Fonts with stale-while-revalidate strategy
-  if (url.startsWith("https://fonts.googleapis.com") || url.startsWith("https://fonts.gstatic.com")) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(cache => {
-        return fetch(event.request)
-          .then(response => {
-            if (response.ok) {
-              cache.put(event.request, response.clone());
-            }
-            return response;
-          })
-          .catch(() => caches.match(event.request));
-      })
-    );
     return;
   }
 

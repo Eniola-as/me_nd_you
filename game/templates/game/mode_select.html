@@ -21,10 +21,7 @@
       content="black-translucent"
     />
 
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+    {% include "accounts/_font.html" %}
 
     <style>
       body {
@@ -148,6 +145,8 @@
         <span>Would You Rather</span>
       </button>
     </div>
+
+    {% include "accounts/_footer.html" %}
 
     <script>
       document.querySelectorAll(".mode-card").forEach((card) => {
