@@ -56,7 +56,9 @@ def add_space_custom_question(request):
     kind = ""
     if data["mode"] == TRUTH_OR_DARE:
         kind = data.get("kind") or classify(data["text"])
-    question = CustomQuestion.objects.create(space=couple, text=data["text"], mode=data["mode"], kind=kind)
+    question = CustomQuestion.objects.create(
+        space=couple, text=data["text"], mode=data["mode"], kind=kind, author=request.user
+    )
     # Server-authoritative rooms get it too, so both partners see it once.
     add_custom_card(question)
     return Response(

@@ -1,3 +1,4 @@
+import json
 from functools import wraps
 
 from django.conf import settings
@@ -11,14 +12,18 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods, require_POST
+
+from rest_framework.throttling import UserRateThrottle
 
 from game.views import ClientRateThrottle
 
 from . import emails
 from .consents import missing_consents, record_consents
+from .export import export_for
 from .forms import (
     ConsentForm,
     EmailAuthenticationForm,
@@ -90,9 +95,38 @@ def profile(request):
         form.save()
         messages.success(request, "Your name is updated.")
         return redirect("/space/")
+    return _render_profile(request, form)
+
+
+def _render_profile(request, form=None, **extra):
     return render(request, "accounts/profile.html", {
-        "form": form, "consents": request.user.consents.order_by("given_at", "pk"),
+        "form": form or ProfileForm(instance=request.user),
+        "consents": request.user.consents.order_by("given_at", "pk"),
+        **extra,
     })
+
+
+class DataExportThrottle(UserRateThrottle):
+    """Per account, not per address (rate in settings)."""
+
+    scope = "account_data_export"
+
+
+@login_required
+@require_POST
+def download_my_data(request):
+    """The user's data as a JSON file, after confirming the password. Every
+    attempt counts toward the limit, wrong passwords included."""
+    if not DataExportThrottle().allow_request(request, None):
+        return HttpResponse("You can download your data 3 times an hour. Please try again later.", status=429)
+    if not request.user.check_password(request.POST.get("password", "")):
+        return _render_profile(request, export_error="That password isn't right.")
+    body = json.dumps(export_for(request.user), ensure_ascii=False, indent=2)
+    response = HttpResponse(body, content_type="application/json")
+    filename = f"me-and-you-data-{timezone.localdate():%Y-%m-%d}.json"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required

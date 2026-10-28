@@ -206,6 +206,7 @@ REST_FRAMEWORK = {
         "account_login": "10/min",
         "account_register": "5/min",
         "account_profile": "20/min",
+        "account_data_export": "3/hour",
         # These send mail (provider quota), so they are tighter.
         "account_verify_email": "5/min",
         "account_password_reset": "5/min",

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from .truth_or_dare import KINDS, MODE as TRUTH_OR_DARE
@@ -41,6 +42,11 @@ class CustomQuestion(models.Model):
     mode = models.CharField(max_length=20, choices=Question.MODES)
     kind = models.CharField(max_length=5, choices=KINDS, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+    # Who added it, recorded from the pre-launch release on; older questions
+    # have none. Used for "Download my data" and account deletion.
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     class Meta:
         constraints = [

@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
@@ -8,6 +9,11 @@ from django.db.models import Q
 # active member in the same slot, so "at most two members" holds even when
 # two people accept invitations at the same moment.
 MEMBER_SLOTS = (1, 2)
+
+# A closed couple space, with everything in it, is permanently deleted this
+# long after closing. Until then each member can download their data from it
+# and an admin can restore it.
+CLOSED_SPACE_RETENTION = timedelta(days=30)
 
 
 class Couple(models.Model):

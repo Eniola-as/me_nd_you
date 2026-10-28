@@ -22,5 +22,17 @@
     {% endfor %}
   </ul>
   <p class="help-text">The app can't work without these, so to withdraw your consent, delete your account.</p>
+
+  <h2 id="download">Download my data</h2>
+  <p class="help-text">A file with your account, consents, your couple's custom questions, and your own chat
+    messages and reactions. If your couple space has closed, it's included until it's deleted, 30 days after
+    closing. Up to 3 downloads an hour.</p>
+  <form method="post" action="/accounts/profile/download/" novalidate>
+    {% csrf_token %}
+    <label for="export-password">Your password</label>
+    <input type="password" name="password" id="export-password" autocomplete="current-password" required />
+    {% if export_error %}<p class="error-text" role="alert">{{ export_error }}</p>{% endif %}
+    <button type="submit" class="secondary">Download my data</button>
+  </form>
   <p class="links"><a href="/space/">Back to your couple space</a></p>
 {% endblock %}
