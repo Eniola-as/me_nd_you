@@ -11,6 +11,7 @@ Protocol (JSON):
   other connections hear about it, never your partner)
   {"type": "presence", "where": "space" | "menu" | "play:<mode>"}
   {"type": "typing"}  (never stored)
+  {"type": "react", "id": n, "emoji": "<one emoji>" | null}
 - server -> one member about the other: {"type": "presence", "partner":
   {"online": bool, "where": ..., "lastSeen": iso | null}} and
   {"type": "typing"}.
@@ -116,6 +117,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             elif message["type"] == "typing":
                 await call(services.membership, self.user, self.couple_id)
                 await self.channel_layer.group_send(self.group, {"type": "chat.typing", "user": self.user.pk})
+            elif message["type"] == "react":
+                await call(services.react, self.user, self.couple_id, message.get("id"), message.get("emoji"))
             elif message["type"] == "read":
                 await call(services.mark_read, self.user, self.couple_id, message.get("upTo"))
             elif message["type"] == "history":
@@ -128,7 +131,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except services.Invalid as error:
             await self.send_error("invalid", request_id, str(error))
         except crypto.ChatKeyMissing:
-            await self.send_error("unavailable", request_id, "Chat isn't available right now.")
+            await self.send_error("unavailable", request_id, "Chat isn't set up on this server yet.")
 
     # Broadcasts carry only ids; each connection re-checks its own user's
     # membership before sending anything.
@@ -144,6 +147,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         if shown is not None:
             await self.send_json({"type": "message", "message": shown})
+
+    async def chat_reaction(self, event):
+        """A reaction changed: resend the message as this user sees it."""
+        await self.chat_message(event)
 
     async def chat_deleted(self, event):
         from . import services
@@ -213,6 +220,6 @@ def _parse(text_data):
         message = json.loads(text_data)
     except ValueError:
         return None
-    if not isinstance(message, dict) or message.get("type") not in {"send", "delete", "history", "read", "presence", "typing"}:
+    if not isinstance(message, dict) or message.get("type") not in {"send", "delete", "history", "read", "presence", "typing", "react"}:
         return None
     return message

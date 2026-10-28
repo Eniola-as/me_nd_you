@@ -28,3 +28,18 @@ class ChatMessage(models.Model):
             ),
         ]
         indexes = [models.Index(fields=["couple", "id"], name="chat_message_couple_order")]
+
+
+class ChatReaction(models.Model):
+    """One person's reaction (a single emoji) to a chat message. Not
+    encrypted: it's one emoji. Deleted with its message."""
+
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name="reactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    emoji = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["message", "user"], name="chat_one_reaction_per_person"),
+        ]

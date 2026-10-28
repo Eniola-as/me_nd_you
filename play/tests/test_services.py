@@ -174,6 +174,13 @@ class HiddenAnswerTests(TestCase):
         self.assertIn("Ann's answer", str(services.snapshot(room, self.ben)))
         self.assertIn("Ben's answer", str(services.snapshot(room, self.ann)))
 
+    def test_history_never_stores_answer_reactions(self):
+        self.answer(self.ann, "Ann's answer")
+        self.answer(self.ben, "Ben's answer")
+        card = GameRoom.objects.get(pk=self.room.pk).state["current"]["key"]
+        self.act(self.ben, "react", {"card": card, "target": "partner", "emoji": "🔥"})
+        self.assertNotIn("🔥", str(list(RoomEvent.objects.values_list("payload", flat=True))))
+
     def test_history_never_stores_answer_text(self):
         self.answer(self.ann, "Ann's answer")
         self.answer(self.ben, "Ben's answer")

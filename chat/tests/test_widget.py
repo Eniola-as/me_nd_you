@@ -1,6 +1,8 @@
 """The chat widget: a floating icon with an unread badge that opens a chat
 panel, on the play page, the space page and the mode menu only."""
 
+import json
+
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
@@ -51,6 +53,13 @@ class WidgetTests(TestCase):
     def test_pages_leave_room_so_the_icon_never_covers_buttons(self):
         html = self.client.get("/play/?mode=truth").content.decode()
         self.assertIn("padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px))", html)
+        # On phones the page scrolls above a strip kept for the icon.
+        self.assertIn("height: calc(100% - 88px - env(safe-area-inset-bottom, 0px));", html)
+
+    def test_the_plus_box_keeps_what_you_typed_across_redraws(self):
+        html = self.client.get("/modes/").content.decode()
+        self.assertIn("function reactionPicker(current, onPick, draft = {})", html)
+        self.assertIn("input.value = draft.value", html)
 
     def test_on_phones_the_panel_is_a_full_width_sheet(self):
         html = self.client.get("/play/?mode=questions").content.decode()
@@ -93,3 +102,17 @@ class WidgetTests(TestCase):
         html = self.client.get("/modes/").content.decode()
         self.assertIn('addEventListener("pagehide", () => chat.disconnect())', html)
         self.assertIn('addEventListener("pageshow"', html)
+
+    def test_messages_have_the_quick_reaction_row_and_a_plus_for_any_emoji(self):
+        from chat.reaction_emoji import QUICK_REACTIONS
+
+        html = self.client.get("/modes/").content.decode()
+        self.assertIn("const QUICK_REACTIONS = " + json.dumps(QUICK_REACTIONS, ensure_ascii=False), html)
+        self.assertIn('setAttribute("maxlength", "32")', html)
+        self.assertIn("chat.react(", html)
+
+    def test_revealed_answers_can_be_reacted_to_on_the_play_page(self):
+        html = self.client.get("/play/?mode=questions").content.decode()
+        for element in ['id="reveal-mine-reactions"', 'id="reveal-partner-reactions"']:
+            self.assertIn(element, html)
+        self.assertIn('room.act("react"', html)

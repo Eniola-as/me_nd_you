@@ -322,8 +322,12 @@
       </form>
       <p id="answer-status" role="status"></p>
       <div id="reveal" hidden>
-        <div class="answer-box"><h3>You</h3><p id="reveal-mine"></p></div>
-        <div class="answer-box"><h3 id="reveal-partner-name">Your partner</h3><p id="reveal-partner"></p></div>
+        <div class="answer-box">
+          <h3>You</h3><p id="reveal-mine"></p><div id="reveal-mine-reactions"></div>
+        </div>
+        <div class="answer-box">
+          <h3 id="reveal-partner-name">Your partner</h3><p id="reveal-partner"></p><div id="reveal-partner-reactions"></div>
+        </div>
       </div>
     </section>
 
@@ -531,6 +535,23 @@
         pendingAnswer = { id, text, card: answerCard, stale: false };
       }
 
+      // One emoji per person on each revealed answer (the chat widget's picker).
+      const answerReactionDrafts = {}; // "<card>:<target>" -> the "+" box's draft.
+      function renderAnswerReactions(reactions) {
+        const tools = window.meYouReactions;
+        if (!tools || !reactions) return;
+        for (const target of ["mine", "partner"]) {
+          const on = reactions[target];
+          const key = `${answerCard}:${target}`;
+          answerReactionDrafts[key] = answerReactionDrafts[key] || {};
+          document.getElementById(`reveal-${target}-reactions`).replaceChildren(
+            tools.chips({ mine: on.me, partner: on.partner }),
+            tools.picker(on.me, (emoji) => room.act("react", { card: answerCard, target, emoji }),
+                         answerReactionDrafts[key]),
+          );
+        }
+      }
+
       function renderAnswers(message) {
         renderRoomState(message);
         const { state, names } = message;
@@ -563,6 +584,7 @@
         if (revealed) {
           document.getElementById("reveal-mine").textContent = state.my_answer || "";
           document.getElementById("reveal-partner").textContent = state.partner_answer || "";
+          renderAnswerReactions(state.reactions);
           answerStatus.textContent = "You've both answered.";
         } else if (state.my_answer) {
           answerBtn.textContent = "Update answer";

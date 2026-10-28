@@ -35,10 +35,10 @@ def encrypt(text):
 
 
 def decrypt(token):
-    """The text, or None if no key can decrypt it."""
+    """The text, or None if no key can decrypt it (or none is set)."""
     try:
         return _current().decrypt(token.encode("ascii")).decode("utf-8")
-    except (InvalidToken, UnicodeError, ValueError):
+    except (ChatKeyMissing, InvalidToken, UnicodeError, ValueError):
         return None
 
 

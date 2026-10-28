@@ -101,7 +101,8 @@ class RotationTests(TestCase):
 class KeySettingsTests(SimpleTestCase):
     def start(self, **env):
         child = {k: v for k, v in os.environ.items() if k not in SETTINGS_ENV_KEYS}
-        child.update({"SECRET_KEY": "test-key", **env})
+        # Empty unless a test sets it: a developer's .env must not leak in.
+        child.update({"SECRET_KEY": "test-key", "CHAT_ENCRYPTION_KEYS": "", **env})
         return subprocess.run([sys.executable, "-c", "import me_nd_you.settings"],
                               cwd=settings.BASE_DIR, env=child, capture_output=True, text=True)
 
@@ -128,7 +129,8 @@ class KeySettingsTests(SimpleTestCase):
     def test_local_development_warns_while_no_key_is_set(self):
         result = subprocess.run([sys.executable, "manage.py", "check"], cwd=settings.BASE_DIR, capture_output=True,
                                 text=True, env={**{k: v for k, v in os.environ.items() if k not in SETTINGS_ENV_KEYS},
-                                                "SECRET_KEY": "test-key", "DEBUG": "True"})
+                                                "SECRET_KEY": "test-key", "DEBUG": "True",
+                                                "CHAT_ENCRYPTION_KEYS": ""})
         self.assertIn("chat.W001", result.stdout + result.stderr)
 
     def test_the_render_blueprint_takes_the_keys_from_the_dashboard(self):

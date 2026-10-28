@@ -9,6 +9,8 @@
     // Called after every successful (re)connection, once queued messages
     // have been sent.
     onOpen = () => {},
+    // Called when reconnecting stops after maxAttempts failures.
+    onGiveUp = () => {},
     WebSocketImpl = root.WebSocket,
     schedule = (fn, ms) => setTimeout(fn, ms),
     maxAttempts = 5,
@@ -47,7 +49,10 @@
     }
 
     function scheduleReconnect() {
-      if (attempts >= maxAttempts) return;
+      if (attempts >= maxAttempts) {
+        onGiveUp();
+        return;
+      }
       retryPending = true;
       const delay = Math.min(1000 * 2 ** attempts, 10000);
       attempts++;

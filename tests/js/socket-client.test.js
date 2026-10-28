@@ -169,3 +169,16 @@ test("close() during a pending reconnect cancels it", () => {
   runTimers();
   assert.equal(sockets.length, 1);
 });
+
+test("onGiveUp runs once it stops retrying", () => {
+  let gaveUp = 0;
+  const { client, sockets, runTimers } = setup({ maxAttempts: 2, onGiveUp: () => gaveUp++ });
+  client.connect();
+  sockets.at(-1).fail();
+  runTimers();
+  sockets.at(-1).fail();
+  runTimers();
+  assert.equal(gaveUp, 0);
+  sockets.at(-1).fail(); // Third failure: no attempts left.
+  assert.equal(gaveUp, 1);
+});

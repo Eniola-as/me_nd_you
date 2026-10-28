@@ -13,6 +13,7 @@ dj-database-url==2.3.0
 django-anymail==15.2
 Django==5.2
 djangorestframework==3.16.0
+emoji==2.16.0
 gunicorn==23.0.0
 hyperlink==21.0.0
 idna==3.10

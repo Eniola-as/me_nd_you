@@ -7,6 +7,7 @@ and stores the result in one transaction.
 
 import random
 
+from chat.reaction_emoji import is_single_emoji
 from game.truth_or_dare import DARE, TRUTH, display_text
 
 
@@ -117,11 +118,13 @@ class AnswerRevealGame(QuestionsGame):
     MAX_ANSWER = 500
 
     def start(self, cards, seed):
-        return dict(super().start(cards, seed), phase="answering", answers={})
+        return dict(super().start(cards, seed), phase="answering", answers={}, reactions={})
 
     def apply(self, state, action, actor_slot, cards, payload=None, seed=None):
         if action == "answer":
             return self._answer(state, actor_slot, payload or {})
+        if action == "react":
+            return self._react(state, actor_slot, payload or {})
         if action == "next":
             return self.forget_answers(super()._next(state, cards))
         return super().apply(state, action, actor_slot, cards, payload, seed)
@@ -136,11 +139,41 @@ class AnswerRevealGame(QuestionsGame):
             partner_answered=theirs in state["answers"],
             # Only once both have answered; before that it is never sent.
             partner_answer=state["answers"].get(theirs) if revealed else None,
+            reactions=self._reactions_view(state, mine, theirs),
         )
 
     @staticmethod
     def forget_answers(state):
-        return dict(state, answers={}, phase="answering")
+        return dict(state, answers={}, phase="answering", reactions={})
+
+    @staticmethod
+    def _reactions_view(state, mine, theirs):
+        """{answer: {who: emoji}} from this viewer's side; only revealed
+        answers can have reactions."""
+        reactions = state.get("reactions", {})
+        on_mine, on_theirs = reactions.get(mine, {}), reactions.get(theirs, {})
+        return {
+            "mine": {"me": on_mine.get(mine), "partner": on_mine.get(theirs)},
+            "partner": {"me": on_theirs.get(mine), "partner": on_theirs.get(theirs)},
+        }
+
+    def _react(self, state, actor_slot, payload):
+        """One emoji per person per revealed answer; null removes it."""
+        if state["phase"] != "revealed" or state["current"] is None:
+            raise ActionInvalid("You can react once both answers are revealed.")
+        if payload.get("card") != state["current"]["key"]:
+            raise ActionInvalid("That card has moved on.")
+        target = {"mine": actor_slot, "partner": 3 - actor_slot}.get(payload.get("target"))
+        emoji = payload.get("emoji")
+        if target is None or (emoji is not None and not is_single_emoji(emoji)):
+            raise ActionInvalid("Pick a single emoji.")
+        reactions = {owner: dict(by) for owner, by in state.get("reactions", {}).items()}
+        on_answer = reactions.setdefault(str(target), {})
+        if emoji is None:
+            on_answer.pop(str(actor_slot), None)
+        else:
+            on_answer[str(actor_slot)] = emoji
+        return dict(state, reactions=reactions)
 
     def _answer(self, state, actor_slot, payload):
         if state["finished"] or state["current"] is None:

@@ -229,3 +229,33 @@ test("disconnect() closes the chat socket, for pages being left", () => {
   assert.equal(closed, true);
   assert.equal(chat.state.connected, false);
 });
+
+test("react sends one emoji for a message, or null to remove it", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(4, "Hi")]));
+  chat.react(4, "🔥");
+  chat.react(4, null);
+  assert.deepEqual(socket().sent.slice(-2), [
+    { type: "react", id: 4, emoji: "🔥" },
+    { type: "react", id: 4, emoji: null },
+  ]);
+});
+
+test("an updated message (a new reaction) replaces it without touching the badge", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(4, "Hi")], { unread: 1 }));
+  socket().receive({ type: "message", message: msg(4, "Hi", false, { reactions: { mine: null, partner: "❤️" } }) });
+  assert.deepEqual(chat.state.items[0].reactions, { mine: null, partner: "❤️" });
+  assert.equal(chat.state.unread, 1);
+});
+
+test("when the socket gives up, the chat says it's unavailable", () => {
+  FakeSocket.instances = [];
+  const timers = [];
+  const chat = createChatClient({ url: "ws://t/", WebSocketImpl: FakeSocket, schedule: (fn) => timers.push(fn), maxAttempts: 1 });
+  chat.connect();
+  FakeSocket.instances.at(-1).drop();
+  timers.splice(0).forEach((fn) => fn());
+  FakeSocket.instances.at(-1).drop();
+  assert.equal(chat.state.error, "Chat is unavailable right now. Reload the page to try again.");
+});

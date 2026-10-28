@@ -158,8 +158,9 @@ def _commit(room, new_state, kind, actor, payload=None, request_id=None):
 
 
 def _event_payload(kind, payload):
-    # Keep answers out of the history; the room state already holds them.
-    return {} if kind == "answer" else (payload or {})
+    # Keep answers (and reactions to them) out of the history; the room
+    # state holds them until the card moves on.
+    return {} if kind in ("answer", "react") else (payload or {})
 
 
 def _membership(user, room):

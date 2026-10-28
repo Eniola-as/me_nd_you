@@ -5,7 +5,8 @@ command, then remove the old key. Messages no key can decrypt are counted
 and left as they are."""
 
 from cryptography.fernet import InvalidToken
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from chat import crypto
@@ -16,6 +17,8 @@ class Command(BaseCommand):
     help = "Re-encrypt every chat message with the first key in CHAT_ENCRYPTION_KEYS."
 
     def handle(self, *args, **options):
+        if not settings.CHAT_ENCRYPTION_KEYS:
+            raise CommandError("CHAT_ENCRYPTION_KEYS is not set; nothing can be re-encrypted.")
         done = unreadable = 0
         for message_id in ChatMessage.objects.values_list("pk", flat=True).iterator():
             with transaction.atomic():

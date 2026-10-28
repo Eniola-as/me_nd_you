@@ -142,3 +142,55 @@ class AnswerRevealGameTests(SimpleTestCase):
         forgotten = self.game.forget_answers(state)
         self.assertEqual((forgotten["answers"], forgotten["phase"]), ({}, "answering"))
         self.assertEqual((forgotten["deck"], forgotten["position"]), (state["deck"], state["position"]))
+
+
+class AnswerReactionTests(SimpleTestCase):
+    """Once both answers are revealed, each partner can react to either
+    answer with one emoji. Reactions go with the answers on Next/Reset."""
+
+    def setUp(self):
+        self.game = get_game("answer_reveal")
+        state = self.game.start(CARDS, seed=7)
+        for slot, text in [(1, "Ann's"), (2, "Ben's")]:
+            state = self.game.apply(state, "answer", actor_slot=slot, cards=CARDS,
+                                    payload={"text": text, "card": state["current"]["key"]})
+        self.revealed = state
+
+    def react(self, state, slot, target, emoji, card=None):
+        payload = {"card": card or state["current"]["key"], "target": target, "emoji": emoji}
+        return self.game.apply(state, "react", actor_slot=slot, cards=CARDS, payload=payload)
+
+    def test_each_partner_reacts_and_each_sees_it_from_their_side(self):
+        state = self.react(self.revealed, 2, "partner", "❤️")  # Ben on Ann's answer.
+        state = self.react(state, 2, "mine", "😂")  # Ben on his own.
+        ann, ben = self.game.view(state, viewer_slot=1), self.game.view(state, viewer_slot=2)
+        self.assertEqual(ann["reactions"], {"mine": {"me": None, "partner": "❤️"},
+                                            "partner": {"me": None, "partner": "😂"}})
+        self.assertEqual(ben["reactions"], {"mine": {"me": "😂", "partner": None},
+                                            "partner": {"me": "❤️", "partner": None}})
+
+    def test_one_per_person_per_answer_changeable_and_removable(self):
+        state = self.react(self.revealed, 1, "partner", "❤️")
+        state = self.react(state, 1, "partner", "🔥")
+        self.assertEqual(self.game.view(state, viewer_slot=2)["reactions"]["mine"]["partner"], "🔥")
+        state = self.react(state, 1, "partner", None)
+        self.assertEqual(self.game.view(state, viewer_slot=2)["reactions"]["mine"]["partner"], None)
+
+    def test_only_after_the_reveal(self):
+        state = self.game.start(CARDS, seed=7)
+        with self.assertRaises(ActionInvalid):
+            self.react(state, 1, "partner", "❤️")
+
+    def test_bad_input_is_refused(self):
+        for target, emoji, card in [("partner", "a", None), ("partner", "😂😂", None), ("them", "❤️", None),
+                                    ("partner", "❤️", "q:old")]:
+            with self.subTest((target, emoji, card)), self.assertRaises(ActionInvalid):
+                self.react(self.revealed, 1, target, emoji, card)
+
+    def test_reactions_go_with_the_answers(self):
+        state = self.react(self.revealed, 1, "partner", "❤️")
+        for after in [self.game.apply(state, "next", actor_slot=1, cards=CARDS),
+                      self.game.apply(state, "reset", actor_slot=1, cards=CARDS, seed=3),
+                      self.game.forget_answers(state)]:
+            self.assertEqual(after["reactions"], {})
+            self.assertNotIn("❤️", str(after))

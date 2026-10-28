@@ -15,7 +15,8 @@ from couples.models import Membership
 
 from . import crypto, presence
 from .groups import chat_group_name, chat_reader_group_name
-from .models import ChatMessage
+from .models import ChatMessage, ChatReaction
+from .reaction_emoji import is_single_emoji
 
 MAX_LENGTH = 1000
 PAGE_SIZE = 50
@@ -83,7 +84,7 @@ def send(user, couple_id, text, request_id):
 def message_for(user, couple_id, message_id):
     """One message as this user may see it; None if it no longer exists."""
     membership(user, couple_id)
-    message = ChatMessage.objects.filter(pk=message_id, couple_id=couple_id).first()
+    message = ChatMessage.objects.filter(pk=message_id, couple_id=couple_id).prefetch_related("reactions").first()
     return serialize(message, user) if message else None
 
 
@@ -96,7 +97,7 @@ def history(user, couple_id, before=None):
         if type(before) is not int or before < 1:
             raise Invalid("Bad history cursor.")
         messages = messages.filter(pk__lt=before)
-    page = list(messages.order_by("-id")[: PAGE_SIZE + 1])
+    page = list(messages.order_by("-id").prefetch_related("reactions")[: PAGE_SIZE + 1])
     result = {
         "messages": [serialize(m, user) for m in reversed(page[:PAGE_SIZE])],
         "has_more": len(page) > PAGE_SIZE,
@@ -145,6 +146,25 @@ def delete(user, couple_id, message_id):
         transaction.on_commit(partial(notify_couple, couple_id, {"type": "chat.deleted", "id": message_id}))
 
 
+def react(user, couple_id, message_id, emoji):
+    """Set (or with emoji=None, remove) this person's one reaction to a
+    message in their couple's chat."""
+    if type(message_id) is not int:
+        raise Invalid("That message doesn't exist.")
+    if emoji is not None and not is_single_emoji(emoji):
+        raise Invalid("Pick a single emoji.")
+    with transaction.atomic():
+        membership(user, couple_id, lock=True)
+        message = ChatMessage.objects.filter(pk=message_id, couple_id=couple_id).first()
+        if message is None:
+            raise Invalid("That message doesn't exist.")
+        if emoji is None:
+            ChatReaction.objects.filter(message=message, user=user).delete()
+        else:
+            ChatReaction.objects.update_or_create(message=message, user=user, defaults={"emoji": emoji})
+        transaction.on_commit(partial(notify_couple, couple_id, {"type": "chat.reaction", "id": message_id}))
+
+
 def serialize(message, viewer):
     text = crypto.decrypt(message.body)
     shown = {
@@ -153,7 +173,10 @@ def serialize(message, viewer):
         "text": text if text is not None else crypto.UNREADABLE,
         "unreadable": text is None,
         "sentAt": message.created_at.isoformat(),
+        "reactions": {"mine": None, "partner": None},
     }
+    for reaction in message.reactions.all():
+        shown["reactions"]["mine" if reaction.user_id == viewer.pk else "partner"] = reaction.emoji
     if shown["mine"] and message.request_id:
         shown["requestId"] = str(message.request_id)  # Lets the sender match it.
     return shown

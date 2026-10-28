@@ -50,6 +50,11 @@
       onOpen() {
         if (where) socket.send({ type: "presence", where });
       },
+      onGiveUp() {
+        connected = false;
+        error = "Chat is unavailable right now. Reload the page to try again.";
+        onChange();
+      },
     });
 
     function newest() {
@@ -149,6 +154,10 @@
       socket.send({ type: "typing" });
     }
 
+    function react(id, emoji) {
+      socket.send({ type: "react", id, emoji });
+    }
+
     function remove(id) {
       socket.send({ type: "delete", id });
     }
@@ -173,6 +182,7 @@
       disconnect,
       send,
       typing,
+      react,
       remove,
       loadOlder,
       setOpen,

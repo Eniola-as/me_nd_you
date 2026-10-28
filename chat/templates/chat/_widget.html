@@ -247,6 +247,46 @@
     font-weight: 600;
     padding: 0 16px;
   }
+  /* Reactions: chips under a message, and the quick row with "+". */
+  .reaction-chips {
+    display: block;
+    margin-top: 2px;
+    font-size: 15px;
+    letter-spacing: 2px;
+  }
+  .reaction-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .reaction-picker button,
+  #chat-panel .reaction-picker button {
+    flex: none;
+    width: auto;
+    margin: 0;
+    padding: 4px 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .reaction-picker button[aria-pressed="true"] {
+    border-color: #ff4c61;
+    background: rgba(255, 76, 97, 0.25);
+  }
+  .reaction-picker input {
+    width: 4.5em;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 8px;
+    background: #262626;
+    color: #fff;
+    font-size: 18px;
+  }
   .chat-sr {
     position: absolute;
     width: 1px;
@@ -256,6 +296,21 @@
     white-space: nowrap;
   }
   @media (max-width: 600px) {
+    /* The page scrolls inside the area above a strip kept for the chat
+       icon, so the icon never sits over a button at any scroll position. */
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      box-sizing: border-box;
+      height: calc(100% - 88px - env(safe-area-inset-bottom, 0px));
+      min-height: 0;
+      padding-bottom: 16px;
+      overflow-y: auto;
+      justify-content: flex-start;
+      justify-content: safe center;
+    }
     /* A full-width sheet; it covers the icon until it's closed. */
     #chat-panel {
       left: 0;
@@ -413,6 +468,74 @@
     }
     setInterval(render, 30000); // Keep "Last seen ... ago" current.
 
+    // The quick reactions (chat.reaction_emoji.QUICK_REACTIONS); "+" takes any
+    // one emoji from the keyboard, and the server checks it.
+    const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍", "🔥"];
+
+    // `draft` belongs to the caller and outlives redraws: { open, value, focused }.
+    function reactionPicker(current, onPick, draft = {}) {
+      const row = document.createElement("span");
+      row.className = "reaction-picker";
+      const button = (label, pressed, onClick, ariaLabel) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        if (pressed !== null) b.setAttribute("aria-pressed", String(pressed));
+        if (ariaLabel) b.setAttribute("aria-label", ariaLabel);
+        b.addEventListener("click", onClick);
+        return b;
+      };
+      for (const emoji of QUICK_REACTIONS) {
+        // Picking your current reaction again takes it back.
+        row.append(button(emoji, emoji === current, () => onPick(emoji === current ? null : emoji)));
+      }
+      const customBox = () => {
+        const input = document.createElement("input");
+        input.maxLength = 32;
+        input.setAttribute("maxlength", "32");
+        input.setAttribute("aria-label", "Any emoji");
+        input.placeholder = "🙂";
+        input.value = draft.value || "";
+        input.addEventListener("input", () => { draft.value = input.value; });
+        input.addEventListener("focus", () => { draft.focused = true; });
+        input.addEventListener("blur", () => { draft.focused = false; });
+        const ok = button("OK", null, () => {
+          const value = input.value.trim();
+          if (!value) return;
+          Object.assign(draft, { open: false, value: "", focused: false });
+          onPick(value);
+        }, "Use this emoji");
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ok.click(); } });
+        if (draft.focused) setTimeout(() => input.isConnected && input.focus());
+        return [input, ok];
+      };
+      if (draft.open) {
+        row.append(...customBox());
+      } else {
+        const custom = !QUICK_REACTIONS.includes(current) && current;
+        const plus = button(custom || "+", Boolean(custom), () => {
+          Object.assign(draft, { open: true, focused: true });
+          const [input, ok] = customBox();
+          plus.replaceWith(input, ok);
+          input.focus();
+        }, "Pick any emoji");
+        row.append(plus);
+      }
+      return row;
+    }
+
+    function reactionChips(reactions) {
+      const chips = document.createElement("span");
+      chips.className = "reaction-chips";
+      chips.textContent = [reactions && reactions.partner, reactions && reactions.mine].filter(Boolean).join(" ");
+      return chips;
+    }
+    // The play page reacts to revealed answers with the same picker.
+    window.meYouReactions = { picker: reactionPicker, chips: reactionChips };
+
+    let reactingTo = null;
+    const reactionDrafts = {}; // Message id -> the "+" box's draft.
+
     // "Delete", then "Delete for both? Yes / No", inside the panel.
     let confirmingDelete = null;
     function deleteControls(id) {
@@ -447,9 +570,28 @@
         meta.textContent = item.failed ? "Not sent" : "Sending…";
       } else {
         meta.textContent = timeFormat.format(new Date(item.sentAt));
+        const reactButton = document.createElement("button");
+        reactButton.type = "button";
+        reactButton.textContent = "React";
+        reactButton.addEventListener("click", () => {
+          reactingTo = reactingTo === item.id ? null : item.id;
+          render();
+        });
+        meta.append(reactButton);
         if (item.mine) meta.append(...deleteControls(item.id));
       }
-      li.append(bubble, meta);
+      li.append(bubble);
+      if (item.reactions && (item.reactions.mine || item.reactions.partner)) li.append(reactionChips(item.reactions));
+      li.append(meta);
+      if (!item.pending && reactingTo === item.id) {
+        reactionDrafts[item.id] = reactionDrafts[item.id] || {};
+        li.append(reactionPicker(item.reactions && item.reactions.mine, (emoji) => {
+          reactingTo = null;
+          delete reactionDrafts[item.id];
+          chat.react(item.id, emoji);
+          render();
+        }, reactionDrafts[item.id]));
+      }
       return li;
     }
 
