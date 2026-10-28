@@ -206,6 +206,10 @@ class ChatSocketTests(TransactionTestCase):
     def test_closing_the_couple_cuts_chat_off_at_once(self):
         async def scenario(app):
             (a, _), (b, _) = await self.open(app, "ann"), await self.open(app, "ben")
+            # Let both connections finish their own database work first: the
+            # in-memory SQLite test database refuses a write while another
+            # thread is still reading the same table ("table is locked").
+            await self.everything(a), await self.everything(b)
             await asyncio.get_running_loop().run_in_executor(None, couples.close_couple, self.ann)
             replies = []
             for page in [a, b]:
@@ -223,6 +227,7 @@ class ChatSocketTests(TransactionTestCase):
     def test_membership_is_rechecked_on_every_message(self):
         async def scenario(app):
             (a, _), (b, _) = await self.open(app, "ann"), await self.open(app, "ben")
+            await self.everything(a), await self.everything(b)  # Settled first (see above).
             # Ben's membership ends without any notification reaching the socket.
             await asyncio.get_running_loop().run_in_executor(
                 None, lambda: Membership.objects.filter(user=self.ben).update(left_at="2026-10-28T00:00:00Z"))
@@ -242,6 +247,7 @@ class ChatSocketTests(TransactionTestCase):
     def test_a_password_reset_closes_that_users_chat(self):
         async def scenario(app):
             (a, _), (b, _) = await self.open(app, "ann"), await self.open(app, "ben")
+            await self.everything(a), await self.everything(b)  # Settled first (see above).
             await asyncio.get_running_loop().run_in_executor(None, sign_out_everywhere, self.ann)
             reply = await self.next_frame(a)
             closed = await self.next_frame(a)
