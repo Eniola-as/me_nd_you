@@ -18,6 +18,7 @@
     <label for="{{ form.password2.id_for_label }}">Confirm password</label>
     {{ form.password2 }}
     {% for error in form.password2.errors %}<p class="error-text" role="alert">{{ error }}</p>{% endfor %}
+    {% include "accounts/_consent_boxes.html" %}
     <input type="hidden" name="next" value="{{ next }}" />
     <button type="submit">Create account</button>
   </form>

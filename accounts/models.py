@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -62,3 +63,33 @@ class User(AbstractUser):
     def clean(self):
         super().clean()
         self.email = self.__class__.objects.normalize_email(self.email)
+
+
+class Consent(models.Model):
+    """One agreement a user gave, with when and to which policy version.
+    Rows are only added: withdrawing consent means deleting the account."""
+
+    AGE = "age_18"
+    TERMS = "terms_privacy"
+    SENSITIVE = "sensitive_data"
+    TRANSFER = "data_transfer"
+    KIND_CHOICES = [
+        (AGE, "Confirmed being 18 or older"),
+        (TERMS, "Agreed to the Terms of Use and Privacy Policy"),
+        (SENSITIVE, "Consented to intimate and sensitive content being stored and processed"),
+        (TRANSFER, "Consented to data being stored and processed outside Nigeria"),
+    ]
+
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="consents")
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    policy_version = models.CharField(max_length=40)
+    given_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["given_at", "pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "kind", "policy_version"], name="accounts_consent_once_per_version"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} ({self.policy_version})"

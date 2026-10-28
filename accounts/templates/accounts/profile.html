@@ -11,5 +11,16 @@
     {% for error in form.display_name.errors %}<p class="error-text" role="alert">{{ error }}</p>{% endfor %}
     <button type="submit">Save</button>
   </form>
+  <h2>Your consents</h2>
+  <ul class="consent-list" style="padding-left: 18px; font-size: 14px; color: #ddd; line-height: 1.5">
+
+    {% for consent in consents %}
+      <li>{{ consent.get_kind_display }}<br />
+        <small class="help-text">{{ consent.given_at|date:"j F Y" }}, policy version {{ consent.policy_version }}</small></li>
+    {% empty %}
+      <li>None recorded yet.</li>
+    {% endfor %}
+  </ul>
+  <p class="help-text">The app can't work without these, so to withdraw your consent, delete your account.</p>
   <p class="links"><a href="/space/">Back to your couple space</a></p>
 {% endblock %}

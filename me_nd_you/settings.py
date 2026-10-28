@@ -77,6 +77,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "accounts.middleware.ConsentRequiredMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "me_nd_you.settings.ServiceWorkerMiddleware",
 ]
@@ -181,6 +182,8 @@ STORAGES = {
 # Test runner only: a fast password hasher. Real hashing (PBKDF2) is slow on
 # purpose, about half a second per password, and the suite creates hundreds of
 # test users. Never active outside `manage.py test`; a test checks that.
+# Gives users created by tests the current consents (accounts.testing).
+TEST_RUNNER = "accounts.testing.ConsentingTestRunner"
 if TESTING:
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 

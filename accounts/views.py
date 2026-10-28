@@ -18,7 +18,15 @@ from django.views.decorators.http import require_http_methods, require_POST
 from game.views import ClientRateThrottle
 
 from . import emails
-from .forms import EmailAuthenticationForm, ProfileForm, RegistrationForm, ResetRequestForm
+from .consents import missing_consents, record_consents
+from .forms import (
+    ConsentForm,
+    EmailAuthenticationForm,
+    ProfileForm,
+    RegistrationForm,
+    ResetRequestForm,
+    ticked_consents,
+)
 from .sessions import sign_out_everywhere
 
 # Session flag: the verification banner was dismissed. Signing in starts a
@@ -62,7 +70,9 @@ def register(request):
         return redirect("/space/")
     form = RegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        user = form.save()
+        with transaction.atomic():
+            user = form.save()
+            record_consents(user, ticked_consents(form))
         login(request, user)  # Starts a fresh session (new session key).
         emails.send_verification_email(request, user)  # A failure doesn't stop sign-up.
         return redirect(_next_url(request))
@@ -80,7 +90,28 @@ def profile(request):
         form.save()
         messages.success(request, "Your name is updated.")
         return redirect("/space/")
-    return render(request, "accounts/profile.html", {"form": form})
+    return render(request, "accounts/profile.html", {
+        "form": form, "consents": request.user.consents.order_by("given_at", "pk"),
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def consent(request):
+    """Existing accounts (and everyone after a policy change) accept the
+    missing consents here before using the app."""
+    missing = missing_consents(request.user)
+    next_url = _next_url(request)
+    if not missing:
+        return redirect(next_url)
+    form = ConsentForm(request.POST or None, missing=missing)
+    if request.method == "POST" and form.is_valid():
+        record_consents(request.user, ticked_consents(form))
+        return redirect(next_url)
+    return render(request, "accounts/consent.html", {
+        "form": form, "next": next_url,
+        "is_update": request.user.consents.exists(),
+    })
 
 
 @require_http_methods(["GET"])

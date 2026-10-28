@@ -1,0 +1,22 @@
+{% extends "accounts/base.html" %}
+{% block title %}Before you continue{% endblock %}
+{% block content %}
+  <h1>Before you continue</h1>
+  {% if is_update %}
+    <p>We've updated our <a href="/terms/" target="_blank">Terms of Use</a> and
+      <a href="/privacy/" target="_blank">Privacy Policy</a>. Please read them and confirm below to keep using Me &amp; You.</p>
+  {% else %}
+    <p>Please read our <a href="/terms/" target="_blank">Terms of Use</a> and
+      <a href="/privacy/" target="_blank">Privacy Policy</a>, then confirm below to keep using Me &amp; You.</p>
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "accounts/_consent_boxes.html" %}
+    <input type="hidden" name="next" value="{{ next }}" />
+    <button type="submit">Continue</button>
+  </form>
+  <form method="post" action="/accounts/logout/">
+    {% csrf_token %}
+    <button type="submit" class="secondary">Not now: sign out</button>
+  </form>
+{% endblock %}

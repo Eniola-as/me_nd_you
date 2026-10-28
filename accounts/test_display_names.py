@@ -7,6 +7,8 @@ from django.test import Client, TestCase
 from couples import services
 
 PASSWORD = "a-long-passphrase-1"
+# The 18+ and consent checkboxes every sign-up must tick (accounts/test_consents.py).
+TICKED = {box: "on" for box in ["confirm_age", "agree_terms", "agree_sensitive", "agree_transfer"]}
 
 
 def make_user(email, name=""):
@@ -31,7 +33,7 @@ class RegistrationNameTests(TestCase):
     def register(self, name):
         return self.client.post("/accounts/register/", {
             "display_name": name, "email": "new@example.com",
-            "password1": PASSWORD, "password2": PASSWORD,
+            "password1": PASSWORD, "password2": PASSWORD, **TICKED,
         })
 
     def test_registration_asks_for_a_display_name(self):

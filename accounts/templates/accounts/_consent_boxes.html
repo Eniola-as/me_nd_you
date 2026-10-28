@@ -1,0 +1,33 @@
+{% comment %}
+  The 18+ confirmation and consent checkboxes: one per consent, required,
+  never pre-ticked. Used by sign-up and the consent page.
+{% endcomment %}
+<style>
+  .consent-box {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 14px;
+    line-height: 1.4;
+  }
+  .consent-box input {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    margin: 1px 0 0;
+    accent-color: var(--accent);
+  }
+  .consent-box a {
+    color: var(--accent);
+  }
+</style>
+<fieldset style="border: none; padding: 0; margin: 18px 0 0">
+  <legend class="help-text">Please tick each box. They're separate on purpose.</legend>
+  {% for box in form.consent_boxes %}
+    <label class="consent-box" for="{{ box.id_for_label }}">
+      {{ box }}
+      <span>{{ box.label }}</span>
+    </label>
+    {% for error in box.errors %}<p class="error-text" role="alert">{{ error }}</p>{% endfor %}
+  {% endfor %}
+</fieldset>

@@ -16,6 +16,8 @@ from accounts import emails
 from couples.services import create_couple
 
 PASSWORD = "a-long-passphrase-1"
+# The 18+ and consent checkboxes every sign-up must tick (accounts/test_consents.py).
+TICKED = {box: "on" for box in ["confirm_age", "agree_terms", "agree_sensitive", "agree_transfer"]}
 LINK = re.compile(r"http://testserver/accounts/verify/#([\w:.-]+)")
 
 
@@ -43,7 +45,7 @@ class VerificationTestCase(TestCase):
 class RegistrationSendsVerificationTests(VerificationTestCase):
     def register(self, email="new@example.com"):
         return self.client.post("/accounts/register/", {
-            "display_name": "Ann", "email": email, "password1": PASSWORD, "password2": PASSWORD,
+            "display_name": "Ann", "email": email, "password1": PASSWORD, "password2": PASSWORD, **TICKED,
         })
 
     def test_new_users_start_unverified(self):

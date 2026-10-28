@@ -12,6 +12,8 @@ from couples import services
 from couples.models import Invitation, Membership
 
 PASSWORD = "a-long-passphrase-1"
+# The 18+ and consent checkboxes every sign-up must tick (accounts/test_consents.py).
+TICKED = {box: "on" for box in ["confirm_age", "agree_terms", "agree_sensitive", "agree_transfer"]}
 
 
 def make_user(email):
@@ -31,6 +33,7 @@ class RegistrationTests(TestCase):
     def register(self, email="new@example.com", password=PASSWORD, confirm=None, client=None):
         return (client or self.client).post("/accounts/register/", {
             "display_name": "New", "email": email, "password1": password, "password2": confirm or password,
+            **TICKED,
         })
 
     def test_registering_creates_the_account_and_signs_in(self):

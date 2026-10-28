@@ -7,9 +7,11 @@ from django.contrib.auth.forms import (
     UserChangeForm,
 )
 
+from django.utils.safestring import mark_safe
+
 from . import emails
 
-from .models import User
+from .models import Consent, User
 
 
 class UserCreationForm(AdminUserCreationForm):
@@ -36,6 +38,55 @@ class DisplayNameField(forms.CharField):
         )
 
 
+# One box per consent, never bundled and never pre-ticked. Wording is a
+# draft for the owner's review.
+CONSENT_BOXES = {
+    "confirm_age": (Consent.AGE, "I confirm I'm 18 or older."),
+    "agree_terms": (Consent.TERMS, mark_safe(
+        'I agree to the <a href="/terms/" target="_blank">Terms of Use</a> and the '
+        '<a href="/privacy/" target="_blank">Privacy Policy</a>.'
+    )),
+    "agree_sensitive": (Consent.SENSITIVE, (
+        "I consent to Me & You storing and processing the intimate and sensitive things I share "
+        "(such as answers and messages about my relationship and sex life), only to run the app "
+        "for me and my partner."
+    )),
+    "agree_transfer": (Consent.TRANSFER, (
+        "I consent to my data being stored and processed outside Nigeria by Me & You's hosting "
+        "and email providers, where it may not be protected to the same standard as Nigerian law."
+    )),
+}
+
+
+def add_consent_boxes(form, kinds):
+    """Add a required checkbox for each consent kind in `kinds`."""
+    for name, (kind, label) in CONSENT_BOXES.items():
+        if kind in kinds:
+            form.fields[name] = forms.BooleanField(
+                label=label, required=True,
+                error_messages={"required": "Please tick this box to continue."},
+            )
+
+
+def consent_box_fields(form):
+    return [form[name] for name in CONSENT_BOXES if name in form.fields]
+
+
+def ticked_consents(form):
+    return [kind for name, (kind, _) in CONSENT_BOXES.items() if form.cleaned_data.get(name)]
+
+
+class ConsentForm(forms.Form):
+    """Asks only for the consents this user hasn't given yet."""
+
+    def __init__(self, *args, missing, **kwargs):
+        super().__init__(*args, **kwargs)
+        add_consent_boxes(self, missing)
+
+    def consent_boxes(self):
+        return consent_box_fields(self)
+
+
 class RegistrationForm(BaseUserCreationForm):
     """Sign-up with email and password. Django's password validators run on
     password2 (length, common passwords, similarity to the email)."""
@@ -49,6 +100,13 @@ class RegistrationForm(BaseUserCreationForm):
         model = User
         fields = ("display_name", "email")
         widgets = {"email": forms.EmailInput(attrs={"autocomplete": "email"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        add_consent_boxes(self, [kind for kind, _ in CONSENT_BOXES.values()])
+
+    def consent_boxes(self):
+        return consent_box_fields(self)
 
     def clean_email(self):
         email = User.objects.normalize_email(self.cleaned_data["email"])

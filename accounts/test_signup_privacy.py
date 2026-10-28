@@ -15,6 +15,8 @@ from django.test import TestCase
 from django.utils.html import escape
 
 PASSWORD = "a-long-passphrase-1"
+# The 18+ and consent checkboxes every sign-up must tick (accounts/test_consents.py).
+TICKED = {box: "on" for box in ["confirm_age", "agree_terms", "agree_sensitive", "agree_transfer"]}
 GENERIC = escape("We couldn't create an account with these details. "
                  "If you already have one, sign in or reset your password.")  # As shown in the page.
 ALERT_SUBJECT = "Someone tried to sign up with your email"
@@ -34,7 +36,7 @@ class TakenEmailTests(TestCase):
 
     def register(self, email="ann@example.com"):
         response = self.client.post("/accounts/register/", {
-            "display_name": "Eve", "email": email, "password1": PASSWORD, "password2": PASSWORD,
+            "display_name": "Eve", "email": email, "password1": PASSWORD, "password2": PASSWORD, **TICKED,
         })
         wait_for_emails()
         return response

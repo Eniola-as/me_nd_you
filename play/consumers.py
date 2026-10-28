@@ -28,8 +28,12 @@ FORBIDDEN_CLOSE_CODE = 4403
 
 @database_sync_to_async
 def open_room(user, game, variant):
+    from accounts.consents import missing_consents
+
     from . import services
 
+    if user.is_authenticated and missing_consents(user):
+        return None  # Must accept the terms first (the pages redirect).
     try:
         room = services.room_for(user, game, variant)
         return room.pk, services.snapshot(room, user)
