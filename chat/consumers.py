@@ -41,12 +41,8 @@ FORBIDDEN_CLOSE_CODE = 4403
 
 @database_sync_to_async
 def open_chat(user):
-    from accounts.consents import missing_consents
-
     from . import services
 
-    if user.is_authenticated and missing_consents(user):
-        return None  # Must accept the terms first (the pages redirect).
     couple_id = services.active_couple_id(user)
     if couple_id is None:
         return None

@@ -11,6 +11,7 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 from django.utils import timezone
 
+from accounts.consents import missing_consents
 from couples.models import Membership
 
 from . import crypto, presence
@@ -48,7 +49,9 @@ def membership(user, couple_id, lock=False):
     if lock:
         memberships = memberships.select_for_update()
     found = memberships.first()
-    if found is None:
+    # Missing a required consent (or not yet accepting a new policy
+    # version) counts as no access, on connect and on every message.
+    if found is None or missing_consents(user):
         raise Forbidden()
     return found
 

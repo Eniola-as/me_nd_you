@@ -13,6 +13,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db import IntegrityError, transaction
 
+from accounts.consents import missing_consents
 from couples.models import Membership
 from couples.services import active_couple
 from game.models import Question
@@ -167,7 +168,9 @@ def _membership(user, room):
     if room.status != GameRoom.ACTIVE or not getattr(user, "is_authenticated", False):
         raise Forbidden()
     membership = Membership.objects.active().filter(user=user, couple_id=room.couple_id).first()
-    if membership is None:
+    # Missing a required consent (or not yet accepting a new policy
+    # version) counts as no access, on connect and on every action/update.
+    if membership is None or missing_consents(user):
         raise Forbidden()
     return membership
 
