@@ -46,3 +46,8 @@ services:
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
+      # Chat encryption key(s), comma-separated, first one encrypts. The app
+      # refuses to start without one. LOSING IT LOSES EVERY CHAT MESSAGE:
+      # keep a copy outside Render (docs/DEPLOYMENT.md).
+      - key: CHAT_ENCRYPTION_KEYS
+        sync: false

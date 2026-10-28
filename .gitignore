@@ -1,5 +1,7 @@
 .env
 *.sqlite3
+# Database backups such as db.sqlite3.old
+*.sqlite3.*
 __pycache__/
 *.pyc
 /staticfiles

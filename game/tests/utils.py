@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 
+from cryptography.fernet import Fernet
 from django.conf import settings
 
 SETTINGS_ENV_KEYS = [
@@ -17,6 +18,7 @@ SETTINGS_ENV_KEYS = [
     "EMAIL_PROVIDER",
     "EMAIL_API_KEY",
     "DEFAULT_FROM_EMAIL",
+    "CHAT_ENCRYPTION_KEYS",
     # A test run with --settings exports this; children must load the real
     # settings module.
     "DJANGO_SETTINGS_MODULE",
@@ -30,7 +32,10 @@ def load_settings(env, names):
     see how they react to different environments.
     """
     child_env = {k: v for k, v in os.environ.items() if k not in SETTINGS_ENV_KEYS}
-    child_env.update({"SECRET_KEY": "test-key", "DEBUG": "False"})
+    # Production settings refuse to start without a chat key: give each run a
+    # freshly generated one (never a real key).
+    child_env.update({"SECRET_KEY": "test-key", "DEBUG": "False",
+                      "CHAT_ENCRYPTION_KEYS": Fernet.generate_key().decode()})
     child_env.update(env)
     script = (
         "import json, me_nd_you.settings as s\n"

@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from cryptography.fernet import Fernet
 from django.conf import settings
 from django.test import SimpleTestCase
 
@@ -20,6 +21,8 @@ PRODUCTION_ENV = {
     "EMAIL_PROVIDER": "brevo",
     "EMAIL_API_KEY": "test-only-fake-api-key",
     "DEFAULT_FROM_EMAIL": "hello@me-nd-you.example",
+    # Generated for this test run; not a real key.
+    "CHAT_ENCRYPTION_KEYS": Fernet.generate_key().decode(),
 }
 
 

@@ -8,6 +8,7 @@ import sys
 from email.utils import formataddr
 from pathlib import Path
 import dj_database_url
+from cryptography.fernet import Fernet
 from decouple import config
 from django.core.exceptions import ImproperlyConfigured
 
@@ -62,6 +63,7 @@ INSTALLED_APPS = [
     "couples",
     "game",
     "play",
+    "chat",
     "rest_framework",
     "channels",
     "anymail",
@@ -236,6 +238,25 @@ else:
     )
 DEFAULT_FROM_EMAIL_ADDRESS = config("DEFAULT_FROM_EMAIL", default="")
 DEFAULT_FROM_EMAIL = formataddr(("Me & You", DEFAULT_FROM_EMAIL_ADDRESS or "no-reply@localhost"))
+# Chat message text is encrypted at rest (chat.crypto). CHAT_ENCRYPTION_KEYS
+# is one or more Fernet keys separated by commas: the first encrypts, all
+# decrypt (see `manage.py rotate_chat_keys`). It comes only from the
+# environment, never from the repository or SECRET_KEY. Losing every key
+# permanently loses every chat message: keep a copy outside Render.
+CHAT_ENCRYPTION_KEYS = [
+    key.strip() for key in config("CHAT_ENCRYPTION_KEYS", default="").split(",") if key.strip()
+]
+for _chat_key in CHAT_ENCRYPTION_KEYS:
+    try:
+        Fernet(_chat_key)
+    except (ValueError, TypeError):
+        # Never echo the value: it may be a real key with a typo.
+        raise ImproperlyConfigured("CHAT_ENCRYPTION_KEYS contains a value that isn't a valid Fernet key.") from None
+if not CHAT_ENCRYPTION_KEYS and not DEBUG:
+    raise ImproperlyConfigured(
+        "CHAT_ENCRYPTION_KEYS must be set in production (see docs/DEPLOYMENT.md)."
+    )
+
 # How long verification links work, in seconds.
 EMAIL_VERIFICATION_TIMEOUT = 3 * 24 * 60 * 60
 PASSWORD_RESET_TIMEOUT = 60 * 60
