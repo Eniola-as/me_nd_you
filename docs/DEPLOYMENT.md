@@ -43,6 +43,7 @@ question lists reset on every restart.
 | `EMAIL_PROVIDER` | `brevo`, `resend` or `postmark`. Mail goes through the provider's HTTPS API; there is no SMTP option (Render's free tier blocks SMTP). Unset, mail is only printed to the log (`accounts.W001`). | Dashboard |
 | `EMAIL_API_KEY` | The provider's API key (Postmark: the server token) (`accounts.W002`) | Dashboard |
 | `DEFAULT_FROM_EMAIL` | The sending address, e.g. `hello@your-domain`; it must be verified with the provider. Mail shows as from "Me & You" (`accounts.W003`). | Dashboard |
+| `CHAT_ENCRYPTION_KEYS` | One or more Fernet keys, comma-separated; the first encrypts new messages, all can decrypt. **Required:** the app refuses to start in production without it. **Losing it loses every chat message** (see "Chat encryption key" below). | Dashboard only |
 | `SECURE_HSTS_SECONDS` | Optional; default 3600. Raise once HTTPS is confirmed. | Dashboard |
 | `RENDER_EXTERNAL_HOSTNAME` | Set by Render automatically | — |
 
@@ -64,6 +65,34 @@ values never enter the repository.
 5. **Choose an email provider** (Brevo, Resend or Postmark), create an API
    key and verify the sending address or domain with them. (**Verify with
    the provider**: free-tier sending limits and what verification needs.)
+6. **Create the chat encryption key** on your own computer, put it in
+   `CHAT_ENCRYPTION_KEYS` in the dashboard, and **store a copy outside
+   Render** (a password manager) before the first chat message exists:
+   ```bash
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+
+## Chat encryption key
+
+> **Warning: losing `CHAT_ENCRYPTION_KEYS` permanently loses every chat
+> message.** There is no recovery: not by us, not by Render, not from a
+> backup, because backups hold only the encrypted text. Render is not a backup
+> of the key. Keep your own copy outside Render, for example in a password
+> manager, and update it whenever the key changes.
+
+- **What it protects:** a leaked database, dump or backup doesn't reveal any
+  message text. **What it doesn't:** anyone with both the app's environment
+  (the Render dashboard) and the database can read messages. It is not
+  end-to-end encryption.
+- **If a key leaks, or to rotate routinely:**
+  1. Generate a new key (command above) and save it in your password manager.
+  2. Set `CHAT_ENCRYPTION_KEYS` to `new,old` (the new key first) and deploy.
+     New messages use the new key; old ones still decrypt with the old one.
+  3. Run `python manage.py rotate_chat_keys` (Render Shell). It re-encrypts
+     every message with the new key and reports any it couldn't read.
+  4. Set `CHAT_ENCRYPTION_KEYS` to just `new` and deploy.
+- **If the key is lost:** existing messages show "This message can't be
+  shown". Set a new key so new messages work; the old ones can't be restored.
 
 There is no production data to carry over: the secret-word couples were test
 data and that system has been removed. The PostgreSQL database starts empty.
@@ -75,7 +104,7 @@ data and that system has been removed. The PostgreSQL database starts empty.
 2. Set the other dashboard variables (table above).
 3. Deploy. The build installs dependencies and collects static files; the
    pre-deploy step runs `migrate`, which on an empty database creates the
-   accounts, couples, game and play tables and loads the 2,067 questions
+   accounts, couples, game, play and chat tables and loads the 2,067 questions
    (the original 1,917 plus 150 approved Truth or Dare dares).
 4. Create an admin: `python manage.py createsuperuser` (email and password).
 5. Run the checks below.
@@ -93,6 +122,9 @@ data and that system has been removed. The PostgreSQL database starts empty.
   questions, with the first one on the card.
 - In "Questions" mode, answer on one device: the other shows "<name> has
   answered." but not the answer, until it answers too.
+- Chat: a message sent on one device arrives on the other with an unread
+  badge, and presence shows where the partner is. If chat says "Chat isn't
+  set up on this server yet", `CHAT_ENCRYPTION_KEYS` is missing.
 
 ## Backups
 

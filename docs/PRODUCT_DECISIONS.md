@@ -58,4 +58,39 @@ custom questions) and adds optional private answers:
   unseen. If someone leaves or reloads, their answer waits on the server.
 - Answers are not kept. Next, Reset and closing the couple delete them from
   the database; answer text is never written to the game history.
-- Later, not now: saved answer history, and reactions to a revealed answer.
+- Later, not now: saved answer history. (Reactions to a revealed answer were
+  added with chat, see §5; they are deleted with the answers.)
+
+## 5. Private chat, presence and reactions (decided 2026-10-28)
+
+- **Where:** a floating icon, bottom-right, on the play page, space page and
+  mode menu. It opens a panel over the page (a full-width sheet on phones)
+  with an unread badge. The icon must never cover game buttons, so on phones
+  the page scrolls above a strip kept for it.
+- **Who:** only the two members of the couple. Membership is checked on every
+  message, and closing the couple or resetting a password cuts chat off at
+  once.
+- **History:** saved. The last 50 load first, then older on request. Each
+  partner can delete their own messages for both of them (the row is
+  removed), never the partner's.
+- **When a couple closes:** messages are hidden from everyone, including the
+  admin pages, and come back if an admin restores the couple. Pre-launch adds
+  permanent deletion 30 days after closing.
+- **Limits:** 1,000 characters per message; 30 messages per minute per person.
+- **Unread badge:** a stored "last read" marker per member. The partner is
+  never told (no read receipts).
+- **Presence:** "Online", "Playing <mode>", "In your space", or "Last seen 5
+  min ago", with one stored last-seen time per member. **Typing indicator:**
+  yes, never stored.
+- **Reactions:** WhatsApp-style. A quick row (❤️ 😂 😮 😢 🙏 👍 🔥) plus "+" for
+  any single emoji, checked on the server. One per person per item,
+  changeable or removable. On chat messages and on revealed Questions
+  answers (deleted with the answers). Your own reaction shows at once and
+  is undone if the server refuses it.
+- **Encryption:** message text is encrypted at rest (Fernet), with keys from
+  `CHAT_ENCRYPTION_KEYS`, never from the repo or `SECRET_KEY`. It is not
+  end-to-end encryption. Reactions are not encrypted. Losing the key loses
+  the messages (docs/DEPLOYMENT.md).
+- **Out of scope for now:** images, voice notes, read receipts, editing,
+  push notifications, search, link previews. Later: end-to-end encryption,
+  an app lock, disappearing messages.
