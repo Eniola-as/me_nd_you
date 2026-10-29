@@ -28,14 +28,39 @@
     </p>
   {% endif %}
 
-  {% if has_pending_invite and not membership %}
-    <h2>You've been invited</h2>
-    <p>Join your partner's private space?</p>
+  {% if invite.error %}
+    <p class="banner" role="alert"><span>{{ invite.error }} Ask your partner to create a new link.</span></p>
+  {% elif invite.state == "already_member" %}
+    <p class="banner" role="status"><span>You're already in this space with {{ invite.inviter }}. Nothing to do.</span></p>
     <form method="post">
       {% csrf_token %}
-      <button type="submit" name="action" value="accept_invite">Accept invitation</button>
-      <button type="submit" name="action" value="dismiss_invite" class="secondary">Not now</button>
+      <button type="submit" name="action" value="dismiss_invite" class="secondary">OK</button>
     </form>
+  {% elif invite %}
+    <h2>{{ invite.inviter }} invited you</h2>
+    {% if invite.state == "switch" %}
+      <p>You're already in a couple space. Joining {{ invite.inviter }}
+        closes your current couple space for both of you: you and your current partner lose access to it, its games,
+        custom questions and chat, straight away.
+        Nothing in it is deleted for 30 days, and you can each download your data from your profile page until
+        then; after that it's permanently deleted.</p>
+      <form method="post">
+        {% csrf_token %}
+        <label class="consent-box" style="display: flex; gap: 10px">
+          <input type="checkbox" name="confirm_switch" value="yes" required style="width: auto" />
+          <span>Close my current space and join {{ invite.inviter }}</span>
+        </label>
+        <button type="submit" name="action" value="accept_invite">Close my space and join</button>
+        <button type="submit" name="action" value="dismiss_invite" class="secondary" formnovalidate>Not now</button>
+      </form>
+    {% else %}
+      <p>Join {{ invite.inviter }}'s private couple space?</p>
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="action" value="accept_invite">Accept invitation</button>
+        <button type="submit" name="action" value="dismiss_invite" class="secondary">Not now</button>
+      </form>
+    {% endif %}
   {% endif %}
 
   {% if not membership %}
@@ -45,7 +70,7 @@
       {% csrf_token %}
       <button type="submit" name="action" value="create_couple">Start a couple space</button>
     </form>
-    <p class="help-text">Got an invitation link from your partner? Open it while signed in.</p>
+    {% if not invite %}{% include "couples/_join_form.html" %}{% endif %}
   {% else %}
     {% if partner %}
       <p>You and <strong>{{ partner.name_for_partner }}</strong> share this space.</p>
@@ -66,8 +91,11 @@
           <button type="submit" name="action" value="revoke_invites" class="secondary">Cancel the link</button>
         {% endif %}
       </form>
+      {% if not invite %}{% include "couples/_join_form.html" %}{% endif %}
     {% endif %}
     <a class="button" href="/modes/">Play together</a>
+
+    {% include "notifications/_panel.html" %}
 
     <details>
       <summary class="links">Leave this couple space</summary>
@@ -87,6 +115,7 @@
     </details>
   {% endif %}
 
+  <p class="links"><button type="button" class="link-button" id="tour-replay" style="min-height: 44px">How Me &amp; You works</button></p>
   <form method="post" action="/accounts/logout/">
     {% csrf_token %}
     <button type="submit" class="secondary">Sign out</button>
@@ -94,4 +123,5 @@
 {% endblock %}
 {% block after_card %}
   {% if membership %}{% include "chat/_widget.html" with load_socket=True where="space" %}{% endif %}
+  {% include "couples/_tour.html" %}
 {% endblock %}

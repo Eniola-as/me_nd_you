@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from accounts.consents import missing_consents
 from couples.models import Membership
+from notifications import services as notifications
 
 from . import crypto, presence
 from .groups import chat_group_name, chat_reader_group_name
@@ -80,6 +81,8 @@ def send(user, couple_id, text, request_id):
         message = ChatMessage.objects.create(
             couple_id=couple_id, author=user, body=crypto.encrypt(text.strip()), request_id=request_id
         )
+        # "<name> sent you a message" (never the text), stored for later.
+        notifications.notify_partner(user, couple_id, notifications.CHAT)
         transaction.on_commit(partial(notify_couple, couple_id, {"type": "chat.message", "id": message.pk}))
     return message
 
@@ -112,7 +115,9 @@ def history(user, couple_id, before=None):
         partner = (Membership.objects.active().filter(couple_id=couple_id).exclude(user=user)
                    .select_related("user").first())
         result.update(lastRead=member.chat_read_up_to, unread=unread.count(),
-                      partner=partner.user.name_for_partner if partner else "")
+                      partner=partner.user.name_for_partner if partner else "",
+                      # Your messages up to this id show as "Seen".
+                      partnerReadUpTo=partner.chat_read_up_to if partner else None)
     return result
 
 
@@ -131,7 +136,10 @@ def mark_read(user, couple_id, up_to):
             return
         member.chat_read_up_to = up_to
         member.save(update_fields=["chat_read_up_to"])
+        notifications.mark_read(user, kind=notifications.CHAT, couple_id=couple_id)
         transaction.on_commit(partial(notify_reader, user.pk, {"type": "chat.read", "upTo": up_to}))
+        # Read receipts: the partner's messages up to here are now "Seen".
+        transaction.on_commit(partial(notify_couple, couple_id, {"type": "chat.seen", "user": user.pk, "upTo": up_to}))
 
 
 def delete(user, couple_id, message_id):

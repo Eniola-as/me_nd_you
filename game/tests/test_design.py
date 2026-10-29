@@ -140,3 +140,30 @@ class MobileTests(TestCase):
         # The general button hover must not reach the flip card.
         html = self.member.get("/play/?mode=questions").content.decode()
         self.assertIn("button:not(:disabled):not(.flip-container):hover", html)
+
+
+class OnboardingTests(TestCase):
+    def setUp(self):
+        member = get_user_model().objects.create_user(email="ann@example.com", password="pw-for-tests-1")
+        services.create_couple(member)
+        self.member = Client()
+        self.member.force_login(member)
+        self.html = self.member.get("/space/").content.decode()
+
+    def test_the_space_page_has_a_short_skippable_tour(self):
+        self.assertRegex(self.html, r'<dialog[^>]*id="tour"[^>]*aria-labelledby=')
+        self.assertIn('id="tour-skip"', self.html)
+        self.assertLessEqual(self.html.count('class="tour-step"'), 5)
+
+    def test_it_shows_once_per_device_and_can_be_replayed(self):
+        self.assertIn('TOUR_SEEN = "meYouTourSeen-v1"', self.html)
+        self.assertIn('id="tour-replay"', self.html)
+
+    def test_it_covers_invites_private_answers_receipts_notifications_and_switching(self):
+        text = self.html.replace("&#x27;", "'")
+        for words in ["invitation link", "revealed together", "Seen", "never what anyone wrote",
+                      "closes your current space"]:
+            self.assertIn(words, text)
+
+    def test_visitors_get_no_tour(self):
+        self.assertNotIn('id="tour"', Client().get("/").content.decode())

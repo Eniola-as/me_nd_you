@@ -17,6 +17,7 @@ from accounts.consents import missing_consents
 from couples.models import Membership
 from couples.services import active_couple
 from game.models import Question
+from notifications import services as notifications
 
 from . import games
 from .cards import DatabaseCards, card_for_question
@@ -110,8 +111,27 @@ def apply_action(user, room_id, action, expected_version, request_id, payload=No
             )
         except games.ActionInvalid as error:
             raise Invalid(str(error)) from None
+        previous_state = room.state
         _commit(room, new_state, kind=action, actor=user, payload=payload, request_id=request_id)
+        _notify_answers(room, user, action, previous_state, new_state)
     return room
+
+
+def _notify_answers(room, user, action, before, after):
+    """Private-answer games: "<name> answered" for the partner, and "your
+    answers are revealed" for whoever answered first. No answer text."""
+    if room.game != games.AnswerRevealGame.key:
+        return
+    if action == "answer":
+        notifications.mark_read(user, kind=notifications.ANSWERED, couple_id=room.couple_id, mode=room.variant)
+        revealed = before.get("phase") != "revealed" and after.get("phase") == "revealed"
+        kind = notifications.REVEALED if revealed else notifications.ANSWERED
+        notifications.notify_partner(user, room.couple_id, kind, room.variant)
+    elif action in ("next", "reset"):
+        # The card moved on: those notifications no longer lead anywhere new.
+        for member in Membership.objects.active().filter(couple_id=room.couple_id).select_related("user"):
+            for kind in (notifications.ANSWERED, notifications.REVEALED):
+                notifications.mark_read(member.user, kind=kind, couple_id=room.couple_id, mode=room.variant)
 
 
 def add_custom_card(question):

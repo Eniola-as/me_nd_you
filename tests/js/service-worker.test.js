@@ -51,9 +51,18 @@ function load({ online = true, cached = {} } = {}) {
       location: { origin: ORIGIN },
       addEventListener: (type, handler) => (handlers[type] = handler),
       skipWaiting() {},
-      clients: { claim: async () => {} },
+      clients: {
+        claim: async () => {},
+        matchAll: async () => windows,
+        openWindow: async (url) => opened.push(url),
+      },
+      registration: { showNotification: async (title, options) => shown.push({ title, options }) },
     },
   };
+  // Push notifications shown, windows opened, and app windows already open.
+  const shown = [];
+  const opened = [];
+  const windows = [];
   vm.runInNewContext(SOURCE, sandbox);
   for (const [name, entries] of Object.entries(cached)) {
     const store = (stores.has(name) ? stores : stores.set(name, new Map())).get(name);
@@ -69,8 +78,51 @@ function load({ online = true, cached = {} } = {}) {
     handlers.fetch(event);
     return responded === null ? "not handled" : (await responded).body;
   }
-  return { handlers, stores, puts, network, cacheName, request, sandbox };
+  return { handlers, stores, puts, network, cacheName, request, sandbox, shown, opened, windows };
 }
+
+async function dispatch(handler, event) {
+  let done;
+  handler({ ...event, waitUntil: (p) => (done = p) });
+  await done;
+}
+
+test("a push shows the notification it carries", async () => {
+  const sw = load();
+  const data = { title: "Me & You", body: "Your partner sent you a message.", url: "/space/?chat=1", tag: "chat_message" };
+  await dispatch(sw.handlers.push, { data: { json: () => data } });
+  assert.equal(sw.shown.length, 1);
+  assert.equal(sw.shown[0].title, "Me & You");
+  assert.equal(sw.shown[0].options.body, "Your partner sent you a message.");
+  assert.equal(sw.shown[0].options.tag, "chat_message");
+  assert.equal(sw.shown[0].options.data.url, "/space/?chat=1");
+});
+
+test("a push without readable data still shows a plain notification", async () => {
+  const sw = load();
+  await dispatch(sw.handlers.push, { data: { json: () => { throw new SyntaxError("bad"); } } });
+  await dispatch(sw.handlers.push, {});
+  assert.equal(sw.shown.length, 2);
+  assert.ok(sw.shown.every((n) => n.title === "Me & You" && n.options.data.url === "/space/"));
+});
+
+test("tapping a notification opens its page in the app, only ever on this site", async () => {
+  const sw = load();
+  const close = () => {};
+  await dispatch(sw.handlers.notificationclick, { notification: { close, data: { url: "/play/?mode=spicy" } } });
+  await dispatch(sw.handlers.notificationclick, { notification: { close, data: { url: "https://evil.example/" } } });
+  await dispatch(sw.handlers.notificationclick, { notification: { close, data: { url: "//evil.example/" } } });
+  assert.deepEqual(sw.opened, ["/play/?mode=spicy", "/space/", "/space/"]);
+});
+
+test("tapping a notification reuses an open app window", async () => {
+  const sw = load();
+  const visited = [];
+  sw.windows.push({ url: `${ORIGIN}/modes/`, focus: async () => {}, navigate: async (u) => visited.push(u) });
+  await dispatch(sw.handlers.notificationclick, { notification: { close() {}, data: { url: "/space/?chat=1" } } });
+  assert.deepEqual(visited, ["/space/?chat=1"]);
+  assert.deepEqual(sw.opened, []);
+});
 
 test("installing caches the offline page and the public static files", async () => {
   const sw = load();

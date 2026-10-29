@@ -7,14 +7,15 @@ Protocol (JSON):
   {"type": "send", "text": "...", "requestId": "<uuid>"}
   {"type": "delete", "id": n}  (your own messages only)
   {"type": "history", "before": n}  (older messages)
-  {"type": "read", "upTo": n}  (moves your unread marker; only your own
-  other connections hear about it, never your partner)
+  {"type": "read", "upTo": n}  (moves your unread marker forward; your
+  other connections get {"type": "read"}, your partner {"type": "seen"})
   {"type": "presence", "where": "space" | "menu" | "play:<mode>"}
   {"type": "typing"}  (never stored)
   {"type": "react", "id": n, "emoji": "<one emoji>" | null}
 - server -> one member about the other: {"type": "presence", "partner":
-  {"online": bool, "where": ..., "lastSeen": iso | null}} and
-  {"type": "typing"}.
+  {"online": bool, "where": ..., "lastSeen": iso | null}},
+  {"type": "typing"} and {"type": "seen", "upTo": n} (read receipts: your
+  messages up to n are "Seen"; also in the history as partnerReadUpTo).
 - server -> both members: {"type": "message", "message": {...}} and
   {"type": "deleted", "id": n}.
 - server -> sender only: {"type": "error", "reason": "invalid" |
@@ -197,6 +198,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_read(self, event):
         await self.send_json({"type": "read", "upTo": event["upTo"]})
+
+    async def chat_seen(self, event):
+        """The partner read up to a message: yours up to it are "Seen".
+        A reader's own connections ignore it (they get chat.read)."""
+        from . import services
+
+        if event["user"] == self.user.pk:
+            return
+        try:
+            await call(services.membership, self.user, self.couple_id)
+        except services.Forbidden:
+            await self.revoke()
+            return
+        await self.send_json({"type": "seen", "upTo": event["upTo"]})
 
     async def couple_mode(self, event):
         """The couple's game mode started, changed, or a switch was asked

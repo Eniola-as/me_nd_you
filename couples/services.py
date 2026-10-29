@@ -46,6 +46,19 @@ class NotInCouple(InvitationError):
     message = "Start or join a couple first."
 
 
+# Both are "already in a couple"; they say which, for the space page.
+class AlreadyMember(AlreadyInCouple):
+    message = "You're already in this space."
+
+
+class SwitchNeedsConfirmation(AlreadyInCouple):
+    message = "Tick the box to confirm that you want to close your current space and join this one."
+
+
+# Where an invitation would take this user (see invitation_for).
+JOIN, ALREADY_MEMBER, SWITCH = "join", "already_member", "switch"
+
+
 def hash_token(raw_token):
     return hashlib.sha256((raw_token or "").encode()).hexdigest()
 
@@ -124,18 +137,48 @@ def pending_invitation(user):
     return _pending(membership.couple).filter(expires_at__gt=timezone.now()).first()
 
 
-def redeem_invitation(user, raw_token):
+def _usable_invitation(raw_token, now, lock=False):
+    invitations = Invitation.objects.select_related("couple", "created_by")
+    if lock:
+        invitations = invitations.select_for_update()
+    invitation = invitations.filter(token_hash=hash_token(raw_token)).first()
+    if invitation is None or not invitation.is_usable(now) or invitation.couple.closed_at:
+        raise InvalidInvitation()
+    return invitation
+
+
+def invitation_for(user, raw_token):
+    """What accepting this invitation would do for this user, without
+    changing anything: (JOIN | ALREADY_MEMBER | SWITCH, inviter's name).
+    Raises InvalidInvitation or CoupleFull. Only the person holding the
+    token sees this, and only the inviter's display name."""
+    invitation = _usable_invitation(raw_token, timezone.now())
+    current = active_membership(user)
+    if current and current.couple_id == invitation.couple_id:
+        return ALREADY_MEMBER, invitation.created_by.name_for_partner
+    if Membership.objects.active().filter(couple=invitation.couple_id).count() >= len(MEMBER_SLOTS):
+        raise CoupleFull()
+    return (SWITCH if current else JOIN), invitation.created_by.name_for_partner
+
+
+def redeem_invitation(user, raw_token, switch=False):
     """Add user to the invitation's couple, atomically. Each invitation works
-    once; a couple never gets a third member."""
+    once; a couple never gets a third member.
+
+    Someone already in another couple must pass switch=True (an explicit
+    confirmation): their current space then closes for both members, exactly
+    as leaving does, in the same transaction as the join. Everything is
+    checked before anything changes, and if any step fails the whole
+    transaction rolls back, so they keep their current space. The caller
+    sends the closure notices for the closed couple."""
     now = timezone.now()
     with transaction.atomic():
-        invitation = (
-            Invitation.objects.select_for_update().filter(token_hash=hash_token(raw_token)).first()
-        )
-        if invitation is None or not invitation.is_usable(now) or invitation.couple.closed_at:
-            raise InvalidInvitation()
-        if active_membership(user):
-            raise AlreadyInCouple()
+        invitation = _usable_invitation(raw_token, now, lock=True)
+        current = active_membership(user)
+        if current and current.couple_id == invitation.couple_id:
+            raise AlreadyMember()
+        if current and not switch:
+            raise SwitchNeedsConfirmation()
 
         # Lock the couple so two acceptances can't pick the same free slot
         # (PostgreSQL); the slot constraint backs this up on every database.
@@ -152,14 +195,22 @@ def redeem_invitation(user, raw_token):
         if not claimed:
             raise InvalidInvitation()
 
-        try:
-            with transaction.atomic():
-                Membership.objects.create(couple=couple, user=user, slot=free[0])
-        except IntegrityError:
-            # Lost a race; the outer transaction rolls back the claim above,
-            # so the invitation stays usable.
-            raise (AlreadyInCouple() if active_membership(user) else CoupleFull()) from None
+        # Only now, with the invitation and a free slot secured, does the
+        # current space close (a savepoint inside this transaction).
+        if current:
+            close_couple(user)
+        _add_member(couple, user, free[0])
     return couple
+
+
+def _add_member(couple, user, slot):
+    try:
+        with transaction.atomic():
+            Membership.objects.create(couple=couple, user=user, slot=slot)
+    except IntegrityError:
+        # Lost a race; the outer transaction rolls back the claim (and any
+        # closure), so the invitation stays usable.
+        raise (AlreadyInCouple() if active_membership(user) else CoupleFull()) from None
 
 
 def close_couple(user, reason=Couple.CLOSED_BY_LEAVING):

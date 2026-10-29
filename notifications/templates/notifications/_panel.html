@@ -1,0 +1,89 @@
+{% load static %}
+{% comment %}
+  The space page's notifications: what happened while you were away (never
+  any message or answer text), and turning alerts on for this device.
+{% endcomment %}
+<section id="notifications" aria-labelledby="notifications-title">
+  <h2 id="notifications-title">Notifications{% if notification_unread %} <span class="beta-label" style="border-color: var(--accent); color: var(--accent)">{{ notification_unread }} new</span>{% endif %}</h2>
+  {% if notification_items %}
+    <ul class="notification-list">
+      {% for item in notification_items %}
+        <li class="{% if item.unread %}unread{% endif %}">
+          <form method="post" action="/notifications/{{ item.id }}/open/">
+            {% csrf_token %}
+            <button type="submit" class="notification-item">
+              <span>{{ item.text }}</span>
+              <small>{{ item.at|timesince }} ago</small>
+            </button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if notification_unread %}
+      <form method="post" action="/notifications/read-all/">
+        {% csrf_token %}
+        <button type="submit" class="link-button">Mark all as read</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <p class="help-text">Nothing new. You'll see messages, answers and game changes from your partner here.</p>
+  {% endif %}
+
+  <div id="push-settings" hidden>
+    <p class="help-text" id="push-status"></p>
+    <button type="button" id="push-on" class="secondary" hidden>Turn on notifications on this device</button>
+    <button type="button" id="push-off" class="secondary" hidden>Turn off notifications on this device</button>
+  </div>
+  <p class="help-text">Notifications only say what happened, like "Your partner sent you a message", never what
+    anyone wrote.</p>
+</section>
+<style>
+  .notification-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .notification-list li {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .notification-list form {
+    margin: 0;
+  }
+  .notification-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 44px;
+    margin: 0;
+    padding: 10px 4px;
+    background: none;
+    border: none;
+    border-radius: 0;
+    color: #ddd;
+    font-size: 15px;
+    text-align: left;
+  }
+  .notification-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .notification-list .unread .notification-item span {
+    color: #fff;
+    font-weight: 600;
+  }
+  .notification-list .unread .notification-item span::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    vertical-align: 1px;
+  }
+  .notification-item small {
+    color: #888;
+    font-size: 12px;
+  }
+</style>
+<script src="{% static 'js/push-toggle.js' %}" defer></script>

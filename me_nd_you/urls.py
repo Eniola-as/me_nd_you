@@ -27,6 +27,7 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     path("privacy/", privacy_notice, name="privacy"),
     path("", include("couples.urls")),
+    path("", include("notifications.urls")),
     path("", include("game.urls")),
 ]
 

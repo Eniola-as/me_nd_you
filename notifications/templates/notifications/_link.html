@@ -1,0 +1,10 @@
+{% comment %}
+  On the mode menu and play page: a quiet link to the space page's
+  notifications, only while something is unread.
+{% endcomment %}
+{% if notification_unread %}
+  <a class="notification-link" href="/space/#notifications"
+     style="display: inline-block; margin: 0 0 12px; padding: 12px 0; color: #ff4c61; font-size: 14px">
+    {{ notification_unread }} new notification{{ notification_unread|pluralize }}
+  </a>
+{% endif %}

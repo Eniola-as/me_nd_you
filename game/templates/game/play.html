@@ -362,6 +362,37 @@
       #pick-reveal[hidden] {
         display: none;
       }
+      /* The previous question (its text only) and the warning before Next. */
+      #previous-question {
+        width: 90%;
+        max-width: 400px;
+        margin-top: 14px;
+        color: #aaa;
+        font-size: 14px;
+      }
+      #previous-question summary {
+        min-height: 44px;
+        padding: 12px 0;
+        cursor: pointer;
+      }
+      #previous-question p {
+        margin: 0;
+        color: #ddd;
+        overflow-wrap: anywhere;
+      }
+      #next-warning {
+        width: 90%;
+        max-width: 400px;
+        margin-top: 20px;
+      }
+      #next-warning p {
+        margin: 0 0 10px;
+      }
+      .warning-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
       .visually-hidden {
         position: absolute;
         width: 1px;
@@ -388,7 +419,9 @@
         }
         .flip-container,
         #answer-panel,
-        #pick-panel {
+        #pick-panel,
+        #previous-question,
+        #next-warning {
           width: 100%;
         }
         .flip-container {
@@ -423,6 +456,7 @@
     <h2>Let’s Play!</h2>
     <div id="mode-title">...loading</div>
     {% include "game/_mode_banner.html" %}
+    {% include "notifications/_link.html" %}
     <p id="turn-banner" role="status" hidden></p>
     <p id="card-kind" hidden></p>
 
@@ -460,6 +494,11 @@
       </div>
     </section>
 
+    <details id="previous-question" hidden>
+      <summary>Previous question</summary>
+      <p id="previous-text"></p>
+    </details>
+
     <section id="pick-panel" aria-label="Your pick" hidden>
       <p class="pick-hint">Pick one. Your partner sees it once you've both picked.</p>
       <div class="pick-options">
@@ -473,6 +512,14 @@
         <p id="pick-result"></p>
       </div>
     </section>
+
+    <div id="next-warning" class="answer-box" role="alertdialog" aria-labelledby="next-warning-text" hidden>
+      <p id="next-warning-text"></p>
+      <div class="warning-buttons">
+        <button type="button" id="nextConfirm">Next anyway</button>
+        <button type="button" id="nextStay">Stay on this question</button>
+      </div>
+    </div>
 
     <div class="buttons">
       <button type="button" id="nextBtn">Next Question</button>
@@ -585,7 +632,45 @@
       container.addEventListener("click", () => card.flip());
       container.style.cursor = "pointer";
 
-      document.getElementById("nextBtn").addEventListener("click", () => room.act("next"));
+      // Next warns first only when moving on would cost the partner
+      // something (private answers are deleted on Next). The server accepts
+      // Next either way; the warning just gives a chance to wait.
+      const nextWarning = document.getElementById("next-warning");
+      let lastAnswerState = null; // { state, partner } from the last update.
+      function nextWarningText() {
+        if (!answering || !lastAnswerState) return null;
+        const { state, partner } = lastAnswerState;
+        if (!state.current || state.finished) return null;
+        if (state.phase === "revealed") {
+          return state.partner_seen ? null
+            : `${partner} hasn't seen your answers yet. Moving on deletes both answers for both of you.`;
+        }
+        if (state.my_answer && !state.partner_answered) {
+          return `${partner} hasn't answered yet. Moving on deletes your answer and skips this question for both of you.`;
+        }
+        if (state.partner_answered && !state.my_answer) {
+          return `${partner} has answered. Moving on deletes their answer before you've both seen it.`;
+        }
+        return null;
+      }
+      function hideNextWarning() {
+        nextWarning.hidden = true;
+      }
+      document.getElementById("nextBtn").addEventListener("click", () => {
+        const warning = nextWarningText();
+        if (!warning) return room.act("next");
+        document.getElementById("next-warning-text").textContent = warning;
+        nextWarning.hidden = false;
+        document.getElementById("nextStay").focus();
+      });
+      document.getElementById("nextConfirm").addEventListener("click", () => {
+        hideNextWarning();
+        room.act("next");
+      });
+      document.getElementById("nextStay").addEventListener("click", () => {
+        hideNextWarning();
+        document.getElementById("nextBtn").focus();
+      });
       document
         .getElementById("truthBtn")
         .addEventListener("click", () => room.act("choose", { kind: "truth" }));
@@ -663,6 +748,10 @@
         url: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/room/${game}/${encodeURIComponent(mode)}/`,
         onState: turnBased ? renderTurns : answering ? renderAnswers : picking ? renderPicks : renderRoomState,
         onError(error) {
+          if (seenRequest && error.requestId === seenRequest) {
+            seenCard = null; // Sent again with the next update (if still revealed).
+            return;
+          }
           const tap = Object.values(answerReactionTaps).find((t) => t.id === error.requestId);
           if (tap) {
             if (error.reason === "stale") {
@@ -764,15 +853,33 @@
         }
       }
 
+      // Tell the server once per card that this player has looked at the
+      // revealed answers, only while the page is actually on screen, so the
+      // partner's Next doesn't warn about it.
+      let seenCard = null;
+      function markAnswersSeen() {
+        if (document.visibilityState !== "visible" || seenCard === answerCard || reveal.hidden) return;
+        seenCard = answerCard;
+        seenRequest = room.act("seen", { card: answerCard });
+      }
+      let seenRequest = null;
+      document.addEventListener("visibilitychange", markAnswersSeen);
+
       function renderAnswers(message) {
         renderRoomState(message);
         const { state, names } = message;
         const partner = (names && names.partner) || "Your partner";
         const current = state.current;
+        lastAnswerState = { state, partner };
+        // The previous question's text only; its answers were deleted on Next.
+        const previous = document.getElementById("previous-question");
+        previous.hidden = !state.previous;
+        document.getElementById("previous-text").textContent = state.previous ? state.previous.text : "";
         answerPanel.hidden = !current || state.finished;
-        if (!current) return;
+        if (!current) return hideNextWarning();
 
         if (current.key !== answerCard) {
+          hideNextWarning(); // The card moved on, so the warning no longer applies.
           // A new card (or the first state after loading or reconnecting):
           // show this player's saved answer, if any, else an empty box.
           answerCard = current.key;
@@ -798,6 +905,7 @@
           document.getElementById("reveal-partner").textContent = state.partner_answer || "";
           renderAnswerReactions(state.reactions);
           answerStatus.textContent = "You've both answered.";
+          markAnswersSeen();
         } else if (state.my_answer) {
           answerBtn.textContent = "Update answer";
           answerStatus.textContent = `Your answer is saved. Waiting for ${partner}.`;

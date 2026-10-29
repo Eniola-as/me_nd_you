@@ -4,6 +4,8 @@ Covers active couple spaces and spaces that closed less than 30 days ago
 (they're permanently deleted after that). The partner's own messages,
 reactions, email and name are theirs, so they're left out."""
 
+from urllib.parse import urlsplit
+
 from django.conf import settings
 from django.utils import timezone
 
@@ -80,4 +82,15 @@ def export_for(user):
             for c in user.consents.order_by("given_at", "pk")
         ],
         "couple_spaces": [_space(user, m) for m in exportable_memberships(user, now)],
+        # What kind of thing happened and when; notifications hold no content.
+        "notifications": [
+            {"kind": n.kind, "mode": n.mode or None, "created_at": _time(n.created_at),
+             "updated_at": _time(n.updated_at), "read_at": _time(n.read_at)}
+            for n in user.notifications.order_by("created_at", "pk")
+        ],
+        # Devices with push notifications on (the push service's address only).
+        "push_devices": [
+            {"push_service": urlsplit(s.endpoint).netloc, "turned_on_at": _time(s.created_at)}
+            for s in user.push_subscriptions.order_by("created_at", "pk")
+        ],
     }

@@ -64,6 +64,13 @@
     follow();
   }
 
+  // A switch both partners agreed to: everyone goes straight to the new
+  // game, from whatever member page they're on (owner, 2026-10-29).
+  function goToGame(mode) {
+    if (!mode || document.body.dataset.playMode === mode) return;
+    window.location.assign(`/play/?mode=${encodeURIComponent(mode)}`);
+  }
+
   async function refresh() {
     const response = await fetch("/api/space/mode/", { credentials: "same-origin" });
     if (response.ok) apply(await response.json());
@@ -79,6 +86,7 @@
     const data = await response.json().catch(() => ({}));
     if (response.ok) {
       apply(data);
+      if (body.action === "accept") goToGame(data.mode);
     } else if (response.status === 409 && data.state) {
       apply(data.state);
       notice("Something changed in the meantime. Here's the latest.");
@@ -106,6 +114,10 @@
       cancelled: n.by_you ? "" : `${partner} cancelled the switch.`,
     };
     notice(texts[n.event] || "");
+    if (n.event === "switched") {
+      goToGame(n.mode);
+      return;
+    }
     refresh();
   });
 

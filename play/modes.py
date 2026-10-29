@@ -20,6 +20,7 @@ from django.db import IntegrityError, transaction
 from couples.models import Membership
 from couples.services import active_couple
 from game.models import Question
+from notifications import services as notifications
 
 from .games import get_game
 from .groups import mode_group_name
@@ -27,14 +28,16 @@ from .models import CoupleMode, GameRoom
 
 LABELS = dict(Question.MODES)
 # Which game each mode plays: turn-based Truth or Dare and Challenges,
-# private answers or picks for Questions and Would You Rather, and a shared
-# deck either partner advances for Spicy Only and Mixed.
+# private answers for Questions and Spicy Only (owner, 2026-10-29), private
+# picks for Would You Rather, and a shared deck either partner advances for
+# Mixed. A couple's earlier Spicy deck (the shared-deck room) is left as it
+# was; Spicy starts a fresh private-answers deck.
 MODE_GAMES = {
     "questions": "answer_reveal",
     "would": "pick_reveal",
     "truth": "truth_or_dare",
     "challenge": "challenge_turns",
-    "spicy": "questions",
+    "spicy": "answer_reveal",
     "mixed": "questions",
 }
 
@@ -126,6 +129,8 @@ def request_switch(user, mode, version):
         row.pending_mode, row.requested_by = mode, user
         _save(row)
         _tell_both(couple, row, "requested", mode, actor=user)
+        # Stored too, for a partner who isn't in the app right now.
+        notifications.notify_partner(user, couple.pk, notifications.MODE_REQUESTED, mode)
     return snapshot(couple, user)
 
 
@@ -144,6 +149,9 @@ def respond(user, accept, version):
         row.pending_mode, row.requested_by = "", None
         _save(row)
         _tell_both(couple, row, "switched" if accept else "declined", requested, actor=user)
+        notifications.mark_read(user, kind=notifications.MODE_REQUESTED, couple_id=couple.pk)
+        if accept:
+            notifications.notify_partner(user, couple.pk, notifications.MODE_SWITCHED, requested)
     return snapshot(couple, user)
 
 
@@ -157,6 +165,9 @@ def cancel(user, version):
         row.pending_mode, row.requested_by = "", None
         _save(row)
         _tell_both(couple, row, "cancelled", requested, actor=user)
+        # The partner's "wants to switch" no longer applies.
+        for member in couple.memberships.active().exclude(user=user).select_related("user"):
+            notifications.mark_read(member.user, kind=notifications.MODE_REQUESTED, couple_id=couple.pk)
     return snapshot(couple, user)
 
 

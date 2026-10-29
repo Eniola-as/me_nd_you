@@ -58,8 +58,8 @@ class Membership(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
     # Set when a member leaves. Kept rather than deleted, so history stays.
     left_at = models.DateTimeField(null=True, blank=True)
-    # The newest chat message this member has seen (for the unread badge).
-    # Private to them: the partner is never told (no read receipts).
+    # The newest chat message this member has seen: their unread badge, and
+    # the partner's "Seen" receipts (owner, 2026-10-29).
     chat_read_up_to = models.BigIntegerField(null=True, blank=True)
     # When this member's last chat connection closed ("Last seen ...").
     last_seen_at = models.DateTimeField(null=True, blank=True)

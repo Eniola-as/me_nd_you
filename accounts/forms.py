@@ -68,13 +68,14 @@ def consent_box_labels():
         "agree_sensitive": (
             "I consent to Me & You storing and processing the intimate and sensitive things I share "
             "(such as answers and messages about my relationship and sex life), only to run the app "
-            "for me and my partner. Chat messages are encrypted when stored. Questions-mode answers "
-            "aren't encrypted, but they're deleted as soon as either of you moves to the next question "
-            "or resets the game. Custom questions are kept until your couple space is deleted, or until "
-            "the person who wrote them deletes their account."
+            "for me and my partner. Chat messages are encrypted when stored. Answers in Questions and "
+            "Spicy Only aren't encrypted, but they're deleted as soon as either of you moves to the next "
+            "question or resets the game. Custom questions are kept until your couple space is deleted, "
+            "or until the person who wrote them deletes their account."
         ),
         "agree_transfer": (
-            f"I consent to Me & You using {transfer_details}. "
+            f"I consent to Me & You using {transfer_details}. If I turn on notifications, my browser's "
+            "push service (such as Google, Apple or Mozilla) delivers them. "
             "Render may process my data outside Nigeria, where protections may differ from Nigerian law."
         ),
     }

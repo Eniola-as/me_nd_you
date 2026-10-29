@@ -37,6 +37,11 @@
     let lastRead = null;
     let partner = "";
     let open = false;
+    // Messages count as read only while the panel is open AND the page is
+    // on screen (the widget reports visibility changes).
+    let visible = true;
+    // The newest message the partner has read: yours up to it are "Seen".
+    let partnerReadUpTo = null;
     let closed = false;
     let error = null;
     let connected = false;
@@ -98,9 +103,10 @@
           lastRead = data.lastRead ?? null;
           unread = data.unread || 0;
           partner = data.partner || "";
+          partnerReadUpTo = data.partnerReadUpTo ?? partnerReadUpTo;
           connected = true;
           upsert(data.messages);
-          if (open) markRead();
+          if (open && visible) markRead();
         } else {
           if (!data.has_more) hasMore = false;
           upsert(data.messages);
@@ -120,7 +126,7 @@
         if (m.requestId) pending = pending.filter((p) => p.requestId !== m.requestId);
         upsert([m]);
         if (!known && isUnread(m)) {
-          if (open) markRead();
+          if (open && visible) markRead();
           else unread++;
         }
       } else if (data.type === "deleted") {
@@ -130,6 +136,9 @@
         if (gone && isUnread(gone) && unread > 0) unread--;
       } else if (data.type === "mode") {
         onMode(data);
+      } else if (data.type === "seen" && Number.isInteger(data.upTo)) {
+        // The partner read up to here; it only ever moves forward.
+        if (partnerReadUpTo === null || data.upTo > partnerReadUpTo) partnerReadUpTo = data.upTo;
       } else if (data.type === "read" && Number.isInteger(data.upTo)) {
         if (lastRead === null || data.upTo > lastRead) lastRead = data.upTo;
         unread = messages.filter(isUnread).length;
@@ -191,8 +200,21 @@
 
     function setOpen(value) {
       open = Boolean(value);
-      if (open) markRead();
+      if (open && visible) markRead();
       onChange();
+    }
+
+    function setVisible(value) {
+      visible = Boolean(value);
+      if (open && visible) markRead();
+      onChange();
+    }
+
+    // Your own messages: "sending" until saved, "sent" once the server has
+    // them, "seen" once the partner has read them. Theirs have no status.
+    function statusOf(m) {
+      if (!m.mine) return null;
+      return partnerReadUpTo !== null && m.id <= partnerReadUpTo ? "seen" : "sent";
     }
 
     function disconnect() {
@@ -209,6 +231,7 @@
       remove,
       loadOlder,
       setOpen,
+      setVisible,
       get state() {
         return {
           items: [
@@ -217,9 +240,10 @@
               const reactions = tapped
                 ? { ...(m.reactions || { mine: null, partner: null }), mine: tapped.emoji }
                 : m.reactions;
-              return { ...m, reactions, pending: false, failed: false };
+              return { ...m, reactions, pending: false, failed: false, status: statusOf(m) };
             }),
-            ...pending.map((p) => ({ id: null, text: p.text, mine: true, pending: true, failed: p.failed })),
+            ...pending.map((p) => ({ id: null, text: p.text, mine: true, pending: true, failed: p.failed,
+                                     status: "sending" })),
           ],
           hasMore,
           unread,

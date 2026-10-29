@@ -216,9 +216,10 @@ class HiddenAnswerTests(TestCase):
         self.assertNotIn("pending answer", self.stored())
         self.assertEqual((room.state["deck"], room.state["position"]), (before["deck"], before["position"]))
 
-    def test_it_only_runs_questions_mode(self):
+    def test_it_only_runs_questions_and_spicy(self):
+        # Spicy Only gained private answers (owner, 2026-10-29).
         with self.assertRaises(services.Invalid):
-            services.room_for(self.ann, "answer_reveal", "spicy")
+            services.room_for(self.ann, "answer_reveal", "mixed")
 
 
 @skipUnless(connection.vendor == "postgresql", "Real concurrency needs PostgreSQL.")

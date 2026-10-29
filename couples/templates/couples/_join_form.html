@@ -1,0 +1,11 @@
+{% comment %}
+  "Join your partner": paste the invitation link they sent. The server reads
+  the code from it and shows the invitation before anything is joined.
+{% endcomment %}
+<form method="post" class="join-form">
+  {% csrf_token %}
+  <label for="invite-link">Got an invitation link from your partner? Paste it here.</label>
+  <input type="text" name="invite_link" id="invite-link" autocomplete="off" autocapitalize="off"
+         spellcheck="false" placeholder="https://…/invite/#…" required />
+  <button type="submit" name="action" value="use_invite_link" class="secondary">Join your partner</button>
+</form>

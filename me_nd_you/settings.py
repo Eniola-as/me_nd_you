@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "game",
     "play",
     "chat",
+    "notifications",
     "rest_framework",
     "channels",
     "anymail",
@@ -105,6 +106,7 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
+                "notifications.context_processors.unread",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "accounts.context_processors.email_delivery",
@@ -260,10 +262,21 @@ DEFAULT_FROM_EMAIL_ADDRESS = config("DEFAULT_FROM_EMAIL", default="")
 DEFAULT_FROM_EMAIL = formataddr(("Me & You", DEFAULT_FROM_EMAIL_ADDRESS or "no-reply@localhost"))
 # Shown on the privacy policy and terms as the address for privacy requests.
 PRIVACY_CONTACT_EMAIL = config("PRIVACY_CONTACT_EMAIL", default="")
+# Push notifications (notifications.push). Generate a pair once with
+# `python manage.py generate_vapid_keys` and set both in the environment;
+# without them push is off and everything else works. Keep the private key
+# secret, and keep it stable: changing it unsubscribes every device. The
+# subject is a contact URL push services may use about problems.
+VAPID_PUBLIC_KEY = config("VAPID_PUBLIC_KEY", default="")
+VAPID_PRIVATE_KEY = config("VAPID_PRIVATE_KEY", default="")
+VAPID_SUBJECT = config(
+    "VAPID_SUBJECT",
+    default=f"mailto:{PRIVACY_CONTACT_EMAIL}" if PRIVACY_CONTACT_EMAIL else "https://me-nd-you.onrender.com",
+)
 # The version of the privacy notice and terms that sign-up consents refer to.
 # Change it when the policy changes so everyone is asked to agree again. A
 # version containing "draft" marks the pages as under review.
-POLICY_VERSION = "beta-2026-10-29-4"
+POLICY_VERSION = "beta-2026-10-29-5"
 # Chat message text is encrypted at rest (chat.crypto). CHAT_ENCRYPTION_KEYS
 # is one or more Fernet keys separated by commas: the first encrypts, all
 # decrypt (see `manage.py rotate_chat_keys`). It comes only from the

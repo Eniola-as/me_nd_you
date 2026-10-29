@@ -1,0 +1,108 @@
+{% comment %}
+  A short welcome tour on the space page: shown once per device (browser
+  storage), skippable at every step (Skip or Esc), and replayable from the
+  "How Me & You works" link. A native modal dialog, so focus and Esc work
+  for keyboards and screen readers. Pure help: it changes nothing.
+{% endcomment %}
+<style>
+  #tour {
+    width: min(400px, calc(100vw - 32px));
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    background: #141414;
+    color: #fff;
+  }
+  #tour::backdrop {
+    background: rgba(0, 0, 0, 0.8);
+  }
+  #tour h2 {
+    margin: 0 0 8px;
+  }
+  #tour .tour-count {
+    margin: 0 0 4px;
+    color: #888;
+    font-size: 12px;
+  }
+  #tour .tour-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  #tour .tour-buttons button {
+    flex: 1;
+  }
+</style>
+<dialog id="tour" aria-labelledby="tour-title">
+  <p class="tour-count" id="tour-count"></p>
+  <h2 id="tour-title">Welcome to Me &amp; You</h2>
+  <div class="tour-step">
+    <p>This is your private couple space. To play together, send your partner an invitation link from here,
+      or paste the one they sent you. You'll always see who invited you before you join.</p>
+  </div>
+  <div class="tour-step" hidden>
+    <p>In Questions and Spicy Only, each of you answers privately. Your answers are revealed together once
+      you've both answered. If your partner would lose an answer, Next asks first.</p>
+  </div>
+  <div class="tour-step" hidden>
+    <p>Chat from the bubble in the corner. Your messages say Sent once they're saved, and Seen once your
+      partner has read them.</p>
+  </div>
+  <div class="tour-step" hidden>
+    <p>Notifications tell you when your partner messages you, answers or wants to switch games. They only say
+      what happened, never what anyone wrote. You can turn them on for this device below.</p>
+  </div>
+  <div class="tour-step" hidden>
+    <p>You can be in one couple space at a time. Joining another one closes your current space for both of
+      you, so you'll always be asked to confirm first.</p>
+  </div>
+  <div class="tour-buttons">
+    <button type="button" class="secondary" id="tour-skip">Skip</button>
+    <button type="button" id="tour-next">Next</button>
+  </div>
+</dialog>
+<script>
+  (function () {
+    const TOUR_SEEN = "meYouTourSeen-v1";
+    const dialog = document.getElementById("tour");
+    const steps = [...dialog.querySelectorAll(".tour-step")];
+    const next = document.getElementById("tour-next");
+    const count = document.getElementById("tour-count");
+    let step = 0;
+
+    function show(n) {
+      step = n;
+      steps.forEach((el, i) => (el.hidden = i !== n));
+      count.textContent = `${n + 1} of ${steps.length}`;
+      next.textContent = n === steps.length - 1 ? "Got it" : "Next";
+    }
+
+    function finish() {
+      try {
+        localStorage.setItem(TOUR_SEEN, "1");
+      } catch (e) {
+        // Storage blocked (e.g. private browsing): it may show again.
+      }
+      if (dialog.open) dialog.close();
+    }
+
+    function start() {
+      show(0);
+      dialog.showModal();
+      next.focus();
+    }
+
+    next.addEventListener("click", () => (step < steps.length - 1 ? show(step + 1) : finish()));
+    document.getElementById("tour-skip").addEventListener("click", finish);
+    dialog.addEventListener("cancel", finish); // Esc counts as skipping.
+    const replay = document.getElementById("tour-replay");
+    if (replay) replay.addEventListener("click", start);
+
+    let seen = false;
+    try {
+      seen = localStorage.getItem(TOUR_SEEN) === "1";
+    } catch (e) {
+      seen = false;
+    }
+    if (!seen) window.addEventListener("load", start);
+  })();
+</script>

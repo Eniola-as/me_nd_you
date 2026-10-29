@@ -6,7 +6,7 @@
 // The API, sockets, account actions and the admin are left to the browser.
 //
 // Bump the version whenever the cached files change, so old caches are dropped.
-const CACHE_NAME = "me-and-you-v5";
+const CACHE_NAME = "me-and-you-v6";
 const OFFLINE_PAGE = "/offline/";
 const PRECACHE = [
   OFFLINE_PAGE,
@@ -65,4 +65,45 @@ self.addEventListener("fetch", (event) => {
     );
   }
   // Anything else (API, sockets, account actions, admin) is not handled here.
+});
+
+// Push notifications (notifications.push): the server sends only a short
+// generic text ("Your partner sent you a message.") and a link on this site,
+// never names or content, since it can show on a lock screen.
+const PUSH_FALLBACK = { title: "Me & You", body: "Something new in your space.", url: "/space/", tag: "me-and-you" };
+
+// Only a path on this site: never another origin ("//x" or "https://x").
+function sitePath(url) {
+  return typeof url === "string" && url.startsWith("/") && !url.startsWith("//") ? url : "/space/";
+}
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = (event.data && event.data.json()) || {};
+  } catch (err) {
+    data = {};
+  }
+  const note = { ...PUSH_FALLBACK, ...data };
+  event.waitUntil(
+    self.registration.showNotification(note.title, {
+      body: note.body,
+      tag: note.tag, // A newer one of the same kind replaces the older.
+      icon: "/static/icons/icon-192.png",
+      badge: "/static/icons/icon-192.png",
+      data: { url: sitePath(note.url) },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = sitePath(event.notification.data && event.notification.data.url);
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) return open.focus().then(() => open.navigate(url));
+      return self.clients.openWindow(url);
+    })
+  );
 });

@@ -75,6 +75,18 @@ class DataExportTests(TestCase):
         self.assertTrue(all(c["given_at"] and c["policy_version"] for c in data["consents"]))
         self.assertNotIn("password", json.dumps(data["account"]))
 
+    def test_your_notifications_and_push_devices_are_included_without_content(self):
+        from notifications.models import PushSubscription
+
+        self.say(self.ben, "A private message for Ann")
+        PushSubscription.objects.create(user=self.ann, endpoint="https://push.example/device-1", p256dh="k", auth="a")
+        data = self.data()
+        self.assertEqual([n["kind"] for n in data["notifications"]], ["chat_message"])
+        self.assertEqual(data["push_devices"], [{"push_service": "push.example",
+                                                 "turned_on_at": data["push_devices"][0]["turned_on_at"]}])
+        self.assertNotIn("A private message", json.dumps(data["notifications"]))
+        self.assertNotIn("device-1", json.dumps(data))
+
     def test_custom_questions_are_marked_yours_where_known(self):
         CustomQuestion.objects.create(space=self.couple, text="Mine?", mode="questions", author=self.ann)
         CustomQuestion.objects.create(space=self.couple, text="His?", mode="questions", author=self.ben)

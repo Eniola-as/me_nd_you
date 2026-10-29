@@ -108,26 +108,35 @@ class QuestionsGame:
 
 
 class AnswerRevealGame(QuestionsGame):
-    """Questions mode. Each partner may answer the card privately; neither
-    answer is sent to the other until both have answered. Answering is
-    optional: Next works at any time. Next, Reset and closing the couple
-    delete the card's answers, revealed or not, so none are kept."""
+    """Questions and Spicy Only. Each partner may answer the card privately;
+    neither answer is sent to the other until both have answered. Answering
+    is optional: Next works at any time. Next, Reset and closing the couple
+    delete the card's answers, revealed or not, so none are kept.
+
+    Next keeps the previous card's text (never its answers) so it can be
+    looked back at; Reset forgets it. "seen" records that a player has
+    looked at the revealed answers, so Next can warn the partner first."""
 
     key = "answer_reveal"
-    variants = {"questions"}
+    variants = {"questions", "spicy"}
     shows_names = True  # "<name> has answered".
     MAX_ANSWER = 500
 
     def start(self, cards, seed):
-        return dict(super().start(cards, seed), phase="answering", answers={}, reactions={})
+        return dict(super().start(cards, seed), phase="answering", answers={}, reactions={}, previous=None,
+                    seen=[])
 
     def apply(self, state, action, actor_slot, cards, payload=None, seed=None):
         if action == "answer":
             return self._answer(state, actor_slot, payload or {})
         if action == "react":
             return self._react(state, actor_slot, payload or {})
+        if action == "seen":
+            return self._seen(state, actor_slot, payload or {})
         if action == "next":
-            return self.forget_answers(super()._next(state, cards))
+            current = state["current"]
+            previous = {"key": current["key"], "text": current["text"]} if current else state.get("previous")
+            return dict(self.forget_answers(super()._next(state, cards)), previous=previous)
         return super().apply(state, action, actor_slot, cards, payload, seed)
 
     def view(self, state, viewer_slot):
@@ -140,12 +149,24 @@ class AnswerRevealGame(QuestionsGame):
             partner_answered=theirs in state["answers"],
             # Only once both have answered; before that it is never sent.
             partner_answer=state["answers"].get(theirs) if revealed else None,
+            # Whether the partner has looked at the revealed answers yet.
+            partner_seen=revealed and int(theirs) in state.get("seen", []),
             reactions=self._reactions_view(state, mine, theirs),
+            previous=state.get("previous"),
         )
 
     @staticmethod
     def forget_answers(state):
-        return dict(state, answers={}, phase="answering", reactions={})
+        return dict(state, answers={}, phase="answering", reactions={}, seen=[])
+
+    @staticmethod
+    def _seen(state, actor_slot, payload):
+        if state["phase"] != "revealed" or state["current"] is None:
+            raise ActionInvalid("There are no revealed answers to see.")
+        if payload.get("card") != state["current"]["key"]:
+            raise ActionInvalid("That card has moved on.")
+        seen = state.get("seen", [])
+        return state if actor_slot in seen else dict(state, seen=sorted(seen + [actor_slot]))
 
     @staticmethod
     def _reactions_view(state, mine, theirs):

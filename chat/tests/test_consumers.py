@@ -270,7 +270,7 @@ class ChatSocketTests(TransactionTestCase):
 
         self.assertEqual(self.run_async(scenario)["reason"], "unavailable")
 
-    def test_reading_on_one_device_clears_the_badge_on_the_other_but_not_the_partners(self):
+    def test_reading_on_one_device_clears_the_badge_on_the_other_and_tells_the_partner_seen(self):
         message = services.send(self.ben, self.couple.pk, "Unread", None)
         ann_cookie_2 = cookie_for(self.ann)
 
@@ -290,4 +290,5 @@ class ChatSocketTests(TransactionTestCase):
         self.assertEqual(first["unread"], 1)
         self.assertEqual(got_laptop, [{"type": "read", "upTo": message.pk}])
         self.assertEqual(got_phone, [{"type": "read", "upTo": message.pk}])
-        self.assertEqual(got_ben, [])
+        # Ben's message now shows as Seen on his side (and nothing else).
+        self.assertEqual(got_ben, [{"type": "seen", "upTo": message.pk}])

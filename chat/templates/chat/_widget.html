@@ -202,6 +202,9 @@
     font-size: 11px;
     color: #999;
   }
+  #chat-messages .receipt-seen {
+    color: #ff4c61;
+  }
   #chat-messages .meta button {
     /* Small text, but a tap target of at least 24px (WCAG 2.5.8). */
     min-height: 24px;
@@ -411,7 +414,8 @@
   <div id="chat-list">
     <button type="button" id="chat-older" hidden>Load older messages</button>
     <ol id="chat-messages" role="log" aria-live="polite"></ol>
-    <p id="chat-empty" hidden>No messages yet. Say hi 👋</p>
+    <p id="chat-empty" hidden>No messages yet. Say hi 👋<br />
+      <small>Your messages show Sent once saved, and Seen once your partner has read them.</small></p>
     <p id="chat-typing" aria-live="polite" hidden></p>
   </div>
   <p id="chat-error" role="alert" hidden></p>
@@ -700,6 +704,13 @@
         meta.textContent = item.failed ? "Not sent" : "Sending…";
       } else {
         meta.textContent = timeFormat.format(new Date(item.sentAt));
+        if (item.status) {
+          // Your own messages: Sent once saved, Seen once your partner has read it.
+          const status = document.createElement("span");
+          status.className = `receipt receipt-${item.status}`;
+          status.textContent = item.status === "seen" ? " · Seen" : " · Sent";
+          meta.append(status);
+        }
         const reactButton = document.createElement("button");
         reactButton.type = "button";
         reactButton.textContent = "React";
@@ -728,11 +739,21 @@
     // Browsers may keep a page they're leaving (back/forward cache) with its
     // socket open, which would keep you "online" there. Close it when the
     // page is hidden, and reconnect if the page comes back.
+    // Messages only count as read (and Seen by your partner) while the open
+    // chat is actually on screen.
+    chat.setVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", () => chat.setVisible(document.visibilityState === "visible"));
+
     window.addEventListener("pagehide", () => chat.disconnect());
     window.addEventListener("pageshow", (e) => {
       if (e.persisted) chat.connect();
     });
 
     chat.connect();
+    // Opened from a "sent you a message" notification: open the chat.
+    if (new URLSearchParams(location.search).has("chat")) {
+      history.replaceState(null, "", location.pathname);
+      setOpen(true);
+    }
   })();
 </script>

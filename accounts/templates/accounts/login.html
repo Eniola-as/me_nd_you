@@ -2,6 +2,9 @@
 {% block title %}Sign in{% endblock %}
 {% block content %}
   <h1>Sign in</h1>
+  {% if request.session.pending_invite %}
+    <p class="messages" role="status">You have an invitation waiting. Sign in or create an account to see your invitation.</p>
+  {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}
@@ -22,7 +25,8 @@
     {% else %}
       Password recovery is unavailable while email delivery is disabled.<br />
     {% endif %}
-    New here? <a href="/accounts/register/">Create an account</a>
+    New here? <a href="/accounts/register/">Create an account</a><br />
+    {% if not request.session.pending_invite %}Have an invite? <a href="/invite/">Join your partner</a>{% endif %}
   </p>
   {% include "accounts/_install_guide.html" %}
 {% endblock %}

@@ -78,7 +78,7 @@ class AnswerRevealGameTests(SimpleTestCase):
         return self.game.apply(state, "next", actor_slot=slot, cards=CARDS)
 
     def test_it_is_questions_mode_with_partner_names(self):
-        self.assertEqual(self.game.variants, {"questions"})
+        self.assertEqual(self.game.variants, {"questions", "spicy"})
         self.assertTrue(self.game.shows_names)
 
     def test_partner_answer_is_hidden_until_both_have_answered(self):

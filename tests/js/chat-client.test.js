@@ -319,3 +319,34 @@ test("the couple's game-mode notices are handed to the page, not shown as chat",
   assert.deepEqual(seen, [notice]);
   assert.deepEqual(chat.state.items, []);
 });
+
+test("your messages say Sending, then Sent once saved, then Seen once your partner has read them", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(1, "Hi", true), msg(2, "There", true)], { partnerReadUpTo: 1 }));
+  chat.send("New one");
+  const status = () => chat.state.items.map((i) => i.status);
+  assert.deepEqual(status(), ["seen", "sent", "sending"]);
+  socket().receive({ type: "seen", upTo: 2 });
+  assert.deepEqual(status(), ["seen", "seen", "sending"]);
+});
+
+test("Seen never goes backwards, and your partner's messages have no status", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(1, "Hi", true), msg(2, "Theirs")], { partnerReadUpTo: 1 }));
+  socket().receive({ type: "seen", upTo: 0 });
+  assert.deepEqual(chat.state.items.map((i) => i.status), ["seen", null]);
+});
+
+test("an open chat on a hidden page doesn't count as read until it's on screen", () => {
+  const { chat, socket } = setup();
+  socket().receive(initial([msg(3, "Unread")], { unread: 1 }));
+  chat.setVisible(false);
+  chat.setOpen(true);
+  assert.equal(chat.state.unread, 1);
+  assert.ok(!socket().sent.some((m) => m.type === "read"));
+  socket().receive({ type: "message", message: msg(4, "Also unread") });
+  assert.equal(chat.state.unread, 2);
+  chat.setVisible(true);
+  assert.equal(chat.state.unread, 0);
+  assert.deepEqual(socket().sent.at(-1), { type: "read", upTo: 4 });
+});

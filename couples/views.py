@@ -1,14 +1,21 @@
+import logging
+import re
+
 from django.contrib import messages
+from django.db import DatabaseError
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from accounts.views import rate_limited
+from notifications import services as notifications
 from play import modes
 
 from . import services
 from .notices import closure_notice_for, send_closure_notices
+
+logger = logging.getLogger(__name__)
 
 # The token from an invitation link waits here until the person accepts. It
 # never goes back into a URL or a page.
@@ -18,6 +25,16 @@ NEW_INVITE_URL = "new_invite_url"
 
 # Real tokens are 43 characters; anything far longer is not kept.
 MAX_TOKEN_LENGTH = 100
+TOKEN_SHAPE = re.compile(r"[A-Za-z0-9_-]{20,%d}" % MAX_TOKEN_LENGTH)
+
+
+def token_from_link(text):
+    """The token from a pasted invitation link (".../invite/#<token>") or a
+    pasted bare token; None if it can't be one."""
+    text = (text or "").strip()
+    if "#" in text:
+        text = text.split("#", 1)[1].strip()
+    return text if TOKEN_SHAPE.fullmatch(text) else None
 
 
 @ensure_csrf_cookie
@@ -29,7 +46,14 @@ def invitation_page(request):
     page reads it and posts it back."""
     if request.method == "GET":
         return render(request, "couples/invite.html")
-    token = request.POST.get("token", "")
+    if "link" in request.POST:
+        # Pasted on this page (e.g. from "Have an invite?" on sign-in).
+        token = token_from_link(request.POST["link"])
+        if token is None:
+            messages.error(request, services.InvalidInvitation.message)
+            return redirect("/invite/")
+    else:
+        token = request.POST.get("token", "")
     if token and len(token) <= MAX_TOKEN_LENGTH:
         request.session[PENDING_INVITE] = token
     if not request.user.is_authenticated:
@@ -53,10 +77,60 @@ def space(request):
         "pending_invitation": services.pending_invitation(user),
         # Shown once, right after it was created.
         "new_invite_url": request.session.pop(NEW_INVITE_URL, None),
-        "has_pending_invite": PENDING_INVITE in request.session,
+        "invite": _pending_invite(request),
+        # (The unread count comes from notifications.context_processors.)
+        "notification_items": notifications.recent(user) if membership else [],
         "closure_notice": closure_notice_for(user),
         **modes.page_context(user),
     })
+
+
+def _pending_invite(request):
+    """What the waiting invitation would do, checked afresh on every view:
+    {"state": JOIN | ALREADY_MEMBER | SWITCH, "inviter": name}, or
+    {"error": message} once (the dead invitation is then forgotten)."""
+    token = request.session.get(PENDING_INVITE)
+    if not token:
+        return None
+    try:
+        state, inviter = services.invitation_for(request.user, token)
+    except services.InvitationError as error:
+        request.session.pop(PENDING_INVITE, None)
+        return {"error": str(error)}
+    return {"state": state, "inviter": inviter}
+
+
+def _accept_invite(request):
+    user = request.user
+    token = request.session.get(PENDING_INVITE)
+    if not token:
+        messages.error(request, "Open the invitation link again to join.")
+        return
+    previous = services.active_couple(user)
+    try:
+        services.redeem_invitation(user, token, switch=request.POST.get("confirm_switch") == "yes")
+    except services.SwitchNeedsConfirmation as error:
+        messages.error(request, str(error))  # The invitation stays, ready to confirm.
+        return
+    except services.AlreadyMember as error:
+        request.session.pop(PENDING_INVITE, None)
+        messages.info(request, str(error))
+        return
+    except services.InvitationError:
+        request.session.pop(PENDING_INVITE, None)
+        raise
+    except DatabaseError:
+        logger.exception("Accepting an invitation failed.")
+        messages.error(request, "Something went wrong while joining. Nothing has changed: "
+                                "you're still in the same space as before. Please try again.")
+        return
+    request.session.pop(PENDING_INVITE, None)
+    if previous is not None:
+        previous.refresh_from_db()
+        send_closure_notices(request, previous)
+        messages.success(request, "Your previous space is closed, and you've joined your partner's couple space.")
+    else:
+        messages.success(request, "You've joined your partner's couple space.")
 
 
 def _handle_action(request):
@@ -72,9 +146,13 @@ def _handle_action(request):
             services.revoke_invitations(user)
             messages.success(request, "The invitation link no longer works.")
         elif action == "accept_invite":
-            token = request.session.pop(PENDING_INVITE, None)
-            services.redeem_invitation(user, token)
-            messages.success(request, "You've joined your partner's couple space.")
+            _accept_invite(request)
+        elif action == "use_invite_link":
+            token = token_from_link(request.POST.get("invite_link"))
+            if token is None:
+                messages.error(request, services.InvalidInvitation.message)
+            else:
+                request.session[PENDING_INVITE] = token
         elif action == "dismiss_invite":
             request.session.pop(PENDING_INVITE, None)
         elif action == "leave_couple":

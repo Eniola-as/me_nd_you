@@ -52,7 +52,7 @@ class ModeServiceTests(TestCase):
         self.assertEqual(modes.MODE_GAMES, {
             "questions": "answer_reveal", "would": "pick_reveal",
             "truth": "truth_or_dare", "challenge": "challenge_turns",
-            "spicy": "questions", "mixed": "questions",
+            "spicy": "answer_reveal", "mixed": "questions",
         })
 
     def test_the_first_mode_starts_at_once_and_both_are_told(self):

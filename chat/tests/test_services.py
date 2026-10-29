@@ -212,13 +212,27 @@ class ReadMarkerTests(ChatServiceTestCase):
             with self.subTest(bad), self.assertRaises(services.Invalid):
                 services.mark_read(self.ann, self.couple.pk, bad)
 
-    def test_only_your_own_devices_hear_about_it_never_your_partner(self):
+    def test_your_devices_and_your_partner_hear_about_it(self):
+        # Sent / Seen receipts (owner, 2026-10-29): the couple's connections
+        # are told who read how far; only the partner's show it as "Seen".
         last = self.send(self.ben, "One")
         with mock.patch("chat.services.notify_reader") as reader, \
                 mock.patch("chat.services.notify_couple") as couple, self.captureOnCommitCallbacks(execute=True):
             services.mark_read(self.ann, self.couple.pk, last.pk)
         reader.assert_called_once_with(self.ann.pk, {"type": "chat.read", "upTo": last.pk})
-        couple.assert_not_called()  # No read receipts.
+        couple.assert_called_once_with(self.couple.pk, {"type": "chat.seen", "user": self.ann.pk, "upTo": last.pk})
+
+    def test_seen_is_stored_so_it_survives_a_refresh(self):
+        mine = self.send(self.ann, "Did you see this?")
+        self.assertIsNone(services.history(self.ann, self.couple.pk)["partnerReadUpTo"])
+        services.mark_read(self.ben, self.couple.pk, mine.pk)
+        self.assertEqual(services.history(self.ann, self.couple.pk)["partnerReadUpTo"], mine.pk)
+
+    def test_you_cannot_mark_your_partners_reading(self):
+        # mark_read only ever moves the caller's own marker.
+        mine = self.send(self.ann, "Unread by Ben")
+        services.mark_read(self.ann, self.couple.pk, mine.pk)
+        self.assertIsNone(services.history(self.ann, self.couple.pk)["partnerReadUpTo"])
 
     def test_outsiders_cannot_mark(self):
         _, (cy,) = make_couple("cy@example.com")

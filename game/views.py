@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
 
 from couples.services import active_couple
+from notifications import services as notifications
 from play import modes
 from play.services import add_custom_card
 
@@ -157,6 +158,9 @@ def play_page(request):
         current = modes.start(request.user, mode)["mode"]
     if current != mode:
         return redirect(f"/play/?mode={current}")
+    # Opening the game shows what these said (who answered, what's playing).
+    for kind in (notifications.ANSWERED, notifications.REVEALED, notifications.MODE_SWITCHED):
+        notifications.mark_read(request.user, kind=kind, mode=mode)
     return render(request, "game/play.html", {**modes.page_context(request.user), "game": modes.MODE_GAMES[mode]})
 
 

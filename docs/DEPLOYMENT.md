@@ -68,6 +68,9 @@ question lists reset on every restart.
 | `DEFAULT_FROM_EMAIL` | The sending address, e.g. `hello@your-domain`; it must be verified with the provider (`accounts.W003` if a provider is selected). | Dashboard |
 | `CHAT_ENCRYPTION_KEYS` | One or more Fernet keys, comma-separated; the first encrypts new messages, all can decrypt. **Required:** the app refuses to start in production without it. **Losing it loses every chat message** (see "Chat encryption key" below). | Dashboard only |
 | `PRIVACY_CONTACT_EMAIL` | `meandyouonlineandenquiry@gmail.com` (the owner's privacy contact). The address that answers privacy requests; shown on `/privacy/`, `/terms/` and in account emails (`accounts.W004`). | Dashboard |
+| `VAPID_PUBLIC_KEY` | Optional: turns on push notifications (alerts when the app is closed). Generate the pair once with `python manage.py generate_vapid_keys`. Without both keys push is off and in-app notifications still work. | Dashboard |
+| `VAPID_PRIVATE_KEY` | The private half of that pair. **Keep it secret and stable:** a new pair unsubscribes every device. | Dashboard only |
+| `VAPID_SUBJECT` | Optional; defaults to `mailto:` + `PRIVACY_CONTACT_EMAIL`. A contact push services may use about problems. | Dashboard |
 | `SECURE_HSTS_SECONDS` | Optional; default 3600. Raise once HTTPS is confirmed. | Dashboard |
 | `RENDER_EXTERNAL_HOSTNAME` | Set by Render automatically | — |
 

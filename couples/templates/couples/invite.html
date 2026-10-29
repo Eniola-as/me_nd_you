@@ -1,12 +1,21 @@
 {% extends "accounts/base.html" %}
 {% block title %}Invitation{% endblock %}
 {% block content %}
-  <h1>Your invitation</h1>
-  <p id="invite-status">Opening your invitation…</p>
-  <noscript><p>Turn on JavaScript to open this invitation link.</p></noscript>
+  <h1>Join your partner</h1>
+  <p id="invite-status" hidden>Opening your invitation…</p>
+  <noscript><p>Turn on JavaScript to open an invitation link, or paste it below.</p></noscript>
   <form id="invite-form" method="post" action="/invite/">
     {% csrf_token %}
     <input type="hidden" name="token" id="invite-token" />
+  </form>
+  {# Opened without a link (e.g. "Have an invite?" on sign-in): paste it. #}
+  <form id="paste-form" method="post" action="/invite/">
+    {% csrf_token %}
+    <label for="invite-link">Paste the invitation link your partner sent you.</label>
+    <input type="text" name="link" id="invite-link" autocomplete="off" autocapitalize="off" spellcheck="false"
+           placeholder="https://…/invite/#…" required />
+    <button type="submit">Continue</button>
+    <p class="help-text">You'll sign in or create an account next, then see the invitation before joining.</p>
   </form>
   <script>
     // The token is after "#", which the browser never sends to the server.
@@ -14,11 +23,10 @@
     const token = location.hash.slice(1);
     history.replaceState(null, "", location.pathname);
     if (token) {
+      document.getElementById("paste-form").hidden = true;
+      document.getElementById("invite-status").hidden = false;
       document.getElementById("invite-token").value = token;
       document.getElementById("invite-form").submit();
-    } else {
-      document.getElementById("invite-status").textContent =
-        "This invitation link is incomplete. Ask your partner to send it again.";
     }
   </script>
 {% endblock %}

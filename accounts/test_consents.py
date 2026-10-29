@@ -53,12 +53,13 @@ class SignUpConsentTests(TestCase):
             "I've read the beta privacy notice and its safety rules and understand Me & You is a beta.",
             "I consent to Me & You storing and processing the intimate and sensitive things I share (such as "
             "answers and messages about my relationship and sex life), only to run the app for me and my partner. "
-            "Chat messages are encrypted when stored. Questions-mode answers aren't encrypted, but they're "
-            "deleted as soon as either of you moves to the next question or resets the game. Custom questions "
-            "are kept until your couple space is deleted, or until the person who wrote them deletes their "
-            "account.",
+            "Chat messages are encrypted when stored. Answers in Questions and Spicy Only aren't encrypted, "
+            "but they're deleted as soon as either of you moves to the next question or resets the game. "
+            "Custom questions are kept until your couple space is deleted, or until the person who wrote them "
+            "deletes their account.",
             "I consent to Me & You using Render (web service and PostgreSQL database in Oregon, USA) "
-            "and Brevo (account email delivery). Render may process my data outside Nigeria, where "
+            "and Brevo (account email delivery). If I turn on notifications, my browser's push service (such "
+            "as Google, Apple or Mozilla) delivers them. Render may process my data outside Nigeria, where "
             "protections may differ from Nigerian law.",
         ])
 

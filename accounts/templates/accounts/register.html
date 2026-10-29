@@ -36,5 +36,6 @@
     <input type="hidden" name="next" value="{{ next }}" />
     <button type="submit">Create account</button>
   </form>
-  <p class="links">Already have an account? <a href="/accounts/login/">Sign in</a></p>
+  <p class="links">Already have an account? <a href="/accounts/login/">Sign in</a>
+    {% if not request.session.pending_invite %}<br />Have an invite? <a href="/invite/">Join your partner</a>{% endif %}</p>
 {% endblock %}

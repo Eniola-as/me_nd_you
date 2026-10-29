@@ -51,3 +51,10 @@ services:
       # keep a copy outside Render (docs/DEPLOYMENT.md).
       - key: CHAT_ENCRYPTION_KEYS
         sync: false
+      # Optional push notifications: a pair from
+      # `python manage.py generate_vapid_keys`. Keep the private key secret
+      # and stable (a new pair unsubscribes every device).
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
