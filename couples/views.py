@@ -5,6 +5,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from accounts.views import rate_limited
+from play import modes
 
 from . import services
 from .notices import closure_notice_for, send_closure_notices
@@ -54,6 +55,7 @@ def space(request):
         "new_invite_url": request.session.pop(NEW_INVITE_URL, None),
         "has_pending_invite": PENDING_INVITE in request.session,
         "closure_notice": closure_notice_for(user),
+        **modes.page_context(user),
     })
 
 

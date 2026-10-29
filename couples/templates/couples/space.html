@@ -3,6 +3,7 @@
 {% block content %}
   {% include "accounts/_verify_banner.html" %}
   <h1>Your couple space</h1>
+  {% include "game/_mode_banner.html" %}
   <p class="links">
     Signed in as {{ user.display_name|default:user.email }} · <a href="/accounts/profile/">Change your name</a>
   </p>

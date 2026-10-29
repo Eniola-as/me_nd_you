@@ -79,7 +79,8 @@ class Consent(models.Model):
     TRANSFER = "data_transfer"
     KIND_CHOICES = [
         (AGE, "Confirmed being 18 or older"),
-        (TERMS, "Agreed to the Terms of Use and Privacy Policy"),
+        # The key predates the beta; the box now asks about the beta notice.
+        (TERMS, "Read the beta privacy notice and understood Me & You is a beta"),
         (SENSITIVE, "Consented to intimate and sensitive content being stored and processed"),
         (TRANSFER, "Consented to data being stored and processed outside Nigeria"),
     ]

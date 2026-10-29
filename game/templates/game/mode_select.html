@@ -93,6 +93,7 @@
   </head>
   <body>
     <h2>Select a Game Mode</h2>
+    {% include "game/_mode_banner.html" %}
 
     <div class="grid">
       <button type="button" class="mode-card" data-mode="questions">
@@ -151,26 +152,12 @@
     <script>
       document.querySelectorAll(".mode-card").forEach((card) => {
         card.addEventListener("click", () => {
-          window.location.href = `/play/?mode=${encodeURIComponent(card.dataset.mode)}`;
+          // Start or open the couple's mode, or ask the partner to switch.
+          window.modeBanner.choose(card.dataset.mode);
         });
       });
-
-      // Service Worker Registration
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", async () => {
-          try {
-            await navigator.serviceWorker.register(
-              "/static/service-worker.js",
-              {
-                scope: "/static/",
-              }
-            );
-          } catch (err) {
-            console.error("Service Worker registration failed:", err);
-          }
-        });
-      }
     </script>
+    {% include "accounts/_pwa.html" %}
     {% include "chat/_widget.html" with load_socket=True where="menu" %}
   </body>
 </html>

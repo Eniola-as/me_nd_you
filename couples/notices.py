@@ -32,6 +32,8 @@ def _context(couple, link):
 
 
 def _send(user, template, context):
+    if not settings.EMAIL_ENABLED:
+        return
     try:
         send_account_email(user, template, context)
     except Exception:

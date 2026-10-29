@@ -31,7 +31,7 @@ import json
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from play.groups import user_group_name
+from play.groups import mode_group_name, user_group_name
 
 from . import presence
 
@@ -62,6 +62,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     group = None
     user_group = None
     reader_group = None
+    mode_group = None
 
     async def connect(self):
         from .groups import chat_group_name, chat_reader_group_name
@@ -75,7 +76,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.group = chat_group_name(self.couple_id)
         self.user_group = user_group_name(self.user.pk)
         self.reader_group = chat_reader_group_name(self.user.pk)
-        for group in (self.group, self.user_group, self.reader_group):
+        self.mode_group = mode_group_name(self.user.pk)
+        for group in (self.group, self.user_group, self.reader_group, self.mode_group):
             await self.channel_layer.group_add(group, self.channel_name)
         await self.accept()
         await self.send_json({"type": "history", "initial": True, **history})
@@ -84,7 +86,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send_partner_presence()
 
     async def disconnect(self, close_code):
-        for group in (self.group, self.user_group, self.reader_group):
+        for group in (self.group, self.user_group, self.reader_group, self.mode_group):
             if group:
                 await self.channel_layer.group_discard(group, self.channel_name)
         if self.couple_id:
@@ -195,6 +197,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_read(self, event):
         await self.send_json({"type": "read", "upTo": event["upTo"]})
+
+    async def couple_mode(self, event):
+        """The couple's game mode started, changed, or a switch was asked
+        for, answered or cancelled (play.modes)."""
+        await self.send_json({"type": "mode", **{k: v for k, v in event.items() if k != "type"}})
 
     async def chat_closed(self, event):
         await self.revoke()

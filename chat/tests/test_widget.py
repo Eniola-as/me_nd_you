@@ -20,7 +20,18 @@ class WidgetTests(TestCase):
     def test_it_is_on_the_play_page_space_page_and_mode_menu(self):
         for page in PAGES:
             with self.subTest(page):
-                html = self.client.get(page).content.decode()
+                client = self.client
+                if page.startswith("/play/"):
+                    mode = page.split("mode=", 1)[1]
+                    _, (ann, _) = make_couple(
+                        f"widget-{mode}@example.com",
+                        f"partner-{mode}@example.com",
+                    )
+                    client = Client()
+                    client.force_login(ann)
+                response = client.get(page)
+                self.assertEqual(response.status_code, 200)
+                html = response.content.decode()
                 self.assertEqual(html.count('id="chat-fab"'), 1)
                 self.assertIn('id="chat-badge"', html)
                 self.assertIn('id="chat-panel"', html)

@@ -83,7 +83,6 @@ MIDDLEWARE = [
     "accounts.middleware.ConsentRequiredMiddleware",
     "accounts.middleware.HourlyPurgeMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "me_nd_you.settings.ServiceWorkerMiddleware",
 ]
 
 # Email-and-password accounts (accounts.User). Must stay set before any
@@ -108,6 +107,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "accounts.context_processors.email_delivery",
             ],
         },
     },
@@ -215,6 +215,7 @@ REST_FRAMEWORK = {
         "account_verify_email": "5/min",
         "account_password_reset": "5/min",
         "space_action": "30/min",
+        "space_mode": "30/min",
         "invite_link": "20/min",
     },
     # How many proxies in front of the app append to X-Forwarded-For. Rate
@@ -229,9 +230,8 @@ REST_FRAMEWORK = {
 
 # Email. EMAIL_PROVIDER picks one of django-anymail's HTTPS API backends;
 # EMAIL_API_KEY is that provider's key. There is deliberately no SMTP option:
-# Render's free tier blocks outgoing SMTP. Without a provider (local
-# development), mail is printed to the console; tests capture it in memory.
-# A deploy check warns while production is not configured.
+# Render's free tier blocks outgoing SMTP. Locally, mail is printed to the
+# console; production fails closed when no provider is configured.
 EMAIL_PROVIDERS = {
     # name: (backend, the ANYMAIL setting that holds its key)
     "brevo": ("anymail.backends.brevo.EmailBackend", "BREVO_API_KEY"),
@@ -240,8 +240,14 @@ EMAIL_PROVIDERS = {
 }
 EMAIL_PROVIDER = config("EMAIL_PROVIDER", default="").strip().lower()
 EMAIL_API_KEY = config("EMAIL_API_KEY", default="")
+EMAIL_ENABLED = bool(EMAIL_PROVIDER) or DEBUG or TESTING
 if not EMAIL_PROVIDER:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    if DEBUG:
+        EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    elif TESTING:
+        EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    else:
+        EMAIL_BACKEND = "accounts.email_backend.DisabledEmailBackend"
     ANYMAIL = {}
 elif EMAIL_PROVIDER in EMAIL_PROVIDERS:
     EMAIL_BACKEND, _key_setting = EMAIL_PROVIDERS[EMAIL_PROVIDER]
@@ -254,10 +260,10 @@ DEFAULT_FROM_EMAIL_ADDRESS = config("DEFAULT_FROM_EMAIL", default="")
 DEFAULT_FROM_EMAIL = formataddr(("Me & You", DEFAULT_FROM_EMAIL_ADDRESS or "no-reply@localhost"))
 # Shown on the privacy policy and terms as the address for privacy requests.
 PRIVACY_CONTACT_EMAIL = config("PRIVACY_CONTACT_EMAIL", default="")
-# The version of the privacy policy and terms that sign-up consents refer to.
+# The version of the privacy notice and terms that sign-up consents refer to.
 # Change it when the policy changes so everyone is asked to agree again. A
 # version containing "draft" marks the pages as under review.
-POLICY_VERSION = "draft-2026-10-28"
+POLICY_VERSION = "beta-2026-10-29-4"
 # Chat message text is encrypted at rest (chat.crypto). CHAT_ENCRYPTION_KEYS
 # is one or more Fernet keys separated by commas: the first encrypts, all
 # decrypt (see `manage.py rotate_chat_keys`). It comes only from the
@@ -302,17 +308,6 @@ LOGGING = {
         "level": "INFO",
     },
 }
-
-
-class ServiceWorkerMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        response = self.get_response(request)
-        if request.path.endswith("service-worker.js"):
-            response["Service-Worker-Allowed"] = "/"
-        return response
 
 
 # -------------------------------------------------------------------

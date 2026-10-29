@@ -1,0 +1,13 @@
+{% comment %}
+  Registers the service worker for the whole site (it's served from the
+  root: game.views.service_worker). Included once on every page.
+{% endcomment %}
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch((err) => {
+        console.error("Service worker registration failed:", err);
+      });
+    });
+  }
+</script>

@@ -6,6 +6,7 @@ and stores the result in one transaction.
 """
 
 import random
+import re
 
 from chat.reaction_emoji import is_single_emoji
 from game.truth_or_dare import DARE, TRUTH, display_text
@@ -191,6 +192,81 @@ class AnswerRevealGame(QuestionsGame):
         return dict(state, answers=answers, phase=phase)
 
 
+def split_options(text):
+    """The two options of "Would you rather A or B?", or None when that isn't
+    certain: then the page offers "Option A" and "Option B" next to the full
+    question. ", or" wins (an option may contain "or"); otherwise exactly one
+    "or" is needed."""
+    match = re.match(r"^\s*would you rather\s+(.+?)\s*\?*\s*$", text or "", re.IGNORECASE)
+    if not match:
+        return None
+    body = match.group(1)
+    for separator in (", or ", " or "):
+        parts = body.split(separator)
+        if len(parts) == 2:
+            options = [part.strip(" ,") for part in parts]
+            if all(options):
+                return [option[0].upper() + option[1:] for option in options]
+            return None
+        if len(parts) > 2:
+            return None
+    return None
+
+
+class PickRevealGame(QuestionsGame):
+    """Would You Rather. Each partner privately picks A or B; neither pick is
+    sent to the other until both have picked, then both are revealed. A pick
+    can change until the reveal. Picking is optional: Next works at any time.
+    Next, Reset and closing the couple delete the picks, so none are kept."""
+
+    key = "pick_reveal"
+    variants = {"would"}
+    shows_names = True  # "<name> has picked".
+    CHOICES = ("a", "b")
+
+    def start(self, cards, seed):
+        return dict(super().start(cards, seed), phase="picking", picks={})
+
+    def apply(self, state, action, actor_slot, cards, payload=None, seed=None):
+        if action == "pick":
+            return self._pick(state, actor_slot, payload or {})
+        if action == "next":
+            return self.forget_answers(super()._next(state, cards))
+        return super().apply(state, action, actor_slot, cards, payload, seed)
+
+    def view(self, state, viewer_slot):
+        mine, theirs = str(viewer_slot), str(3 - viewer_slot)
+        revealed = state["phase"] == "revealed"
+        current = state["current"]
+        return dict(
+            super().view(state, viewer_slot),
+            phase=state["phase"],
+            options=split_options(current["text"]) if current else None,
+            my_pick=state["picks"].get(mine),
+            partner_picked=theirs in state["picks"],
+            # Only once both have picked; before that it is never sent.
+            partner_pick=state["picks"].get(theirs) if revealed else None,
+        )
+
+    @staticmethod
+    def forget_answers(state):
+        """Called on Next and when the couple closes (as for answers)."""
+        return dict(state, picks={}, phase="picking")
+
+    def _pick(self, state, actor_slot, payload):
+        if state["finished"] or state["current"] is None:
+            raise ActionInvalid("There's no card to pick on.")
+        if payload.get("card") != state["current"]["key"]:
+            raise ActionInvalid("That card has moved on.")
+        if state["phase"] != "picking":
+            raise ActionInvalid("The picks are already revealed.")
+        choice = payload.get("choice")
+        if choice not in self.CHOICES:
+            raise ActionInvalid("Pick A or B.")
+        picks = dict(state["picks"], **{str(actor_slot): choice})
+        return dict(state, picks=picks, phase="revealed" if len(picks) == 2 else "picking")
+
+
 class TruthOrDareGame:
     """Turn-based Truth or Dare. The player whose turn it is picks Truth or
     Dare; the server draws the next card from that pool and the turn passes
@@ -295,7 +371,81 @@ class TruthOrDareGame:
         return dict(card, kind=kind)
 
 
-GAMES = {game.key: game for game in (QuestionsGame(), AnswerRevealGame(), TruthOrDareGame())}
+class ChallengeTurnsGame:
+    """Turn-based Challenges (owner, 2026-10-29). The player whose turn it is
+    draws the next challenge and the turn passes to the partner. The player
+    whose challenge is up may skip it as often as they like: they get the
+    next one, the turn stays as it is, and the skipped one goes to the
+    bottom of the pile. The first turn is random (from the seed)."""
+
+    key = "challenge_turns"
+    variants = {"challenge"}
+    shows_names = True  # The turn banner names the partner.
+
+    def start(self, cards, seed):
+        rng = random.Random(seed)
+        pile = [card["key"] for card in as_source(cards).all()]
+        rng.shuffle(pile)
+        first = rng.choice([1, 2])
+        return {"pile": pile, "turn": first, "first_turn": first, "current": None, "drawn_by": None,
+                "draws": 0, "seed": seed, "finished": not pile}
+
+    def apply(self, state, action, actor_slot, cards, payload=None, seed=None):
+        if action == "draw":
+            return self._draw(state, actor_slot, cards)
+        if action == "skip":
+            return self._skip(state, actor_slot, cards)
+        if action == "reset":
+            return self.start(cards, seed if seed is not None else new_seed())
+        raise ActionInvalid("Unknown action.")
+
+    def insert_card(self, state, card, seed):
+        """Add a new challenge to the pile, at a random place, once."""
+        current = state["current"] or {}
+        if card["key"] in state["pile"] or current.get("key") == card["key"]:
+            return state
+        pile = list(state["pile"])
+        pile.insert(random.Random(seed).randint(0, len(pile)), card["key"])
+        return dict(state, pile=pile, finished=False)
+
+    def view(self, state, viewer_slot):
+        """What a player may see. The pile order stays on the server."""
+        return {
+            "current": state["current"],
+            "your_turn": state["turn"] == viewer_slot,
+            "first_turn_yours": state["first_turn"] == viewer_slot,
+            "drawn_by_you": state["drawn_by"] == viewer_slot,
+            "draws": state["draws"],
+            "remaining": len(state["pile"]),
+            "finished": state["finished"],
+        }
+
+    def _draw(self, state, actor_slot, cards):
+        if actor_slot != state["turn"]:
+            raise ActionInvalid("It's not your turn.")
+        if not state["pile"]:
+            raise ActionInvalid("No challenges left. Reset to play again.")
+        pile = list(state["pile"])
+        drawn = pile.pop(0)
+        return dict(state, pile=pile, current=self._card(cards, drawn), drawn_by=actor_slot,
+                    turn=3 - actor_slot, draws=state["draws"] + 1, finished=not pile)
+
+    def _skip(self, state, actor_slot, cards):
+        if state["current"] is None or state["drawn_by"] != actor_slot:
+            raise ActionInvalid("Only the player whose challenge it is can skip it.")
+        pile = list(state["pile"]) + [state["current"]["key"]]  # Skipped one to the bottom.
+        drawn = pile.pop(0)
+        return dict(state, pile=pile, current=self._card(cards, drawn), finished=not pile)
+
+    @staticmethod
+    def _card(cards, key):
+        return as_source(cards).get(key) or {
+            "key": key, "text": "(This challenge was removed.)", "mode": "challenge", "custom": False,
+        }
+
+
+GAMES = {game.key: game for game in (QuestionsGame(), AnswerRevealGame(), PickRevealGame(), TruthOrDareGame(),
+                                     ChallengeTurnsGame())}
 
 
 def get_game(key):

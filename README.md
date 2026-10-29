@@ -17,15 +17,22 @@ visit https://me-nd-you.onrender.com
 - Email accounts with display names; partners never see each other's email
 - Email verification (a reminder, never a requirement) and password reset by email
 - Private couple spaces, joined with a single-use invitation link
-- Multiple game modes including Questions, Truth or Dare, Challenges, Spicy Only, Mixed Mode, and Would You Rather
+- Multiple game modes including Questions, Truth or Dare, Challenges, Spicy Only, Mixed Mode, and Would You Rather (3,105 questions)
+- One shared mode per couple, shown on every member page ("Now playing"); switching is a request the partner accepts, and every mode keeps its progress
+- Truth or Dare and Challenges in turns (unlimited skips); Spicy Only and Mixed as a shared deck either partner advances
+- Would You Rather: each partner picks privately, and both picks are revealed together
+- Adding your own prompt matches the mode: a Truth/Dare choice in Truth or Dare, and a category in Mixed Mode
 - A server-held game: both partners always see the same card, in real time over WebSockets
 - Questions mode: each partner can answer privately, and both answers are revealed together once you've both answered (answering is optional)
 - Flip-card prompts, and custom questions that join the shared deck straight away
-- Leaving a couple closes it for both partners; an admin can restore it
+- Leaving a couple closes it for both partners, and both get a neutral email and notice; an admin can restore it within 30 days, after which it is permanently deleted
+- A short beta privacy notice (`/privacy/`); an 18+ confirmation and separate explicit consents at sign-up, asked again when the notice's version changes
+- "Download my data" (JSON) and account deletion with a 7-day undo, from the profile page
+- No third parties in the page: the Outfit font is served by the app itself
 - Private couple chat from a floating icon on the play page, space page and mode menu: unread badge, partner presence ("Playing Truth or Dare", "Last seen 5 min ago"), typing indicator, and deleting your own messages
 - Emoji reactions on chat messages and revealed answers, with a quick row and "+" for any emoji
 - Chat messages encrypted at rest (not end-to-end; see Known Limitations)
-- Mobile-friendly, installable PWA
+- Mobile-friendly, installable PWA; offline it opens to an offline page, and nothing personal is stored on the device
 
 ## Screenshots
 
@@ -169,25 +176,33 @@ me_nd_you/
 
 ## Pre-launch Checklist
 
-Approved and in progress before the first public launch:
+Built:
 
-- An 18+ age confirmation at sign-up
-- A privacy policy and terms page, with explicit, separate consents at sign-up (terms and privacy; intimate content; data stored outside Nigeria)
+- An 18+ age confirmation at sign-up (no birth date)
+- A beta privacy notice (`/privacy/`, linked from every page), with explicit, separate consents at sign-up (18+; the beta notice; intimate content; data stored outside Nigeria), each stored with its time and version; existing accounts accept before continuing. The full privacy policy and the Terms of Use are deferred and unpublished until their legal review
 - Self-hosted fonts, so no third party sees visitors
-- "Download my data" from the profile page
-- Account deletion by users, with a 7-day undo
-- Closed couple spaces permanently deleted 30 days after closing
+- "Download my data" from the profile page (password, 3 an hour), including a closed space's data during its 30 days
+- Account deletion by users, with a 7-day undo (signing in cancels); email confirmation is available only when an email provider is configured
+- Closed couple spaces permanently deleted 30 days after closing, with in-app notices; email notices are available only when a provider is configured
+- Purging without a worker: at most hourly in the app, and `python manage.py purge_deleted_accounts` on every deploy
 - The admin pages never show custom-question text
-- A short data-breach response plan: affected users told at once for high-risk breaches, and the Nigeria Data Protection Commission (NDPC) notified within 72 hours
+
+Still to do by the owner before launch:
+
+- Set `DATABASE_URL` in the Render dashboard to the Oregon database's internal connection string; keep it private
+- Decide later whether to configure an email provider. Without one, verification and password recovery are disabled; the app fails closed instead of writing email contents to logs
+- The polished Terms of Use and the full legal review (deferred for the beta)
+- Set `PRIVACY_CONTACT_EMAIL` in the Render dashboard (`accounts.E004` until it is)
+- A short data-breach response plan: affected users told at once for high-risk breaches, and the Nigeria Data Protection Commission (NDPC) notified within 72 hours (described in the privacy policy, section 11)
 
 ## Roadmap
 
 In this order, each with its own plan and approval first:
 
 1. Comfort setting (Sweet / Spicy), chosen by each partner, the couple playing at the lower of the two, enforced on the server in every mode
-2. Would You Rather with private picks, revealed together (reusing the answer-reveal engine)
+2. Would You Rather with private picks, revealed together (done for the beta)
 3. Saved answer history for Questions mode, encrypted at rest like chat, and included in data export and account deletion
-4. PWA offline loading and install
+4. PWA offline loading and install (done for the beta)
 5. Deploy to Render
 6. Then the Product Expansion Master Plan ([docs/EXPANSION_PLAN.md](docs/EXPANSION_PLAN.md)): new games, Couples and Friends spaces, personalisation
 
@@ -212,6 +227,8 @@ Live updates between partners use Channels' in-memory layer, which works within 
 
 Changing an account's email address isn't possible yet.
 
+Deleted accounts (after their 7 days) and couple spaces closed over 30 days ago are purged on every deploy and, in between, at most once an hour on the first request after that. The hourly timer is kept per server process, like the rate limits; with no traffic and no deploys, a purge waits for the next request. The privacy policy promises deletion "always within 30 days".
+
 Signing up with an email that already has an account shows a generic message and emails that account's owner (at most once a day). Because sign-up signs new users in straight away, the page still differs from a successful sign-up, so checking whether an email is registered is slowed (5 attempts per minute per client) and reported to the owner, not prevented.
 
 Verification and password-reset emails are sent from a background thread. If the server restarts mid-send, that email is lost; requesting another one works. Like the rate limits, the one-verification-email-per-2-minutes limit is counted per server process.
@@ -224,7 +241,9 @@ Chat presence ("online", "Playing …") is tracked in the server's memory, in th
 
 On phones, pages with the chat icon scroll inside the area above the icon, so the browser's address bar may not hide while you scroll.
 
-The app installs as a PWA, but pages don't load offline yet: the service worker is registered with the scope `/static/`, so it doesn't control any app page. Fixing this is a small future task (serve the worker from `/` and cache the pages it should open offline).
+The app installs as a PWA. Offline, it opens to an offline page: playing and chatting need a connection. The service worker (served from `/service-worker.js`) caches only public static files and the offline page, never a signed-in page, the API or account traffic.
+
+Would You Rather buttons show the two options when the question splits cleanly into "A or B"; otherwise they read "Option A" / "Option B" next to the full question.
 
 ## Contributing
 
@@ -243,4 +262,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Author
 
 - GitHub: [Eniola-as](https://github.com/eniola-as)
-

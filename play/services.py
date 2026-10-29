@@ -21,7 +21,7 @@ from game.models import Question
 from . import games
 from .cards import DatabaseCards, card_for_question
 from .groups import room_group_name, user_group_name
-from .models import GameRoom, RoomEvent
+from .models import CoupleMode, GameRoom, RoomEvent
 
 
 VALID_MODES = {value for value, _ in Question.MODES}
@@ -95,6 +95,10 @@ def apply_action(user, room_id, action, expected_version, request_id, payload=No
 
         if request_id and RoomEvent.objects.filter(room=room, request_id=request_id).exists():
             return room  # A retry of a request that was already applied.
+        current_mode = CoupleMode.objects.filter(couple_id=room.couple_id).values_list("mode", flat=True).first()
+        if current_mode and room.variant != current_mode:
+            # The couple switched modes (play.modes); this page hasn't followed yet.
+            raise Invalid("You're playing another mode now.")
         if expected_version != room.version:
             raise Stale(snapshot(room, user))
 
@@ -159,9 +163,9 @@ def _commit(room, new_state, kind, actor, payload=None, request_id=None):
 
 
 def _event_payload(kind, payload):
-    # Keep answers (and reactions to them) out of the history; the room
-    # state holds them until the card moves on.
-    return {} if kind in ("answer", "react") else (payload or {})
+    # Keep answers, Would You Rather picks and reactions out of the history;
+    # the room state holds them until the card moves on.
+    return {} if kind in ("answer", "react", "pick") else (payload or {})
 
 
 def _membership(user, room):

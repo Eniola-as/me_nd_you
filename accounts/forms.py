@@ -11,6 +11,7 @@ from django.utils.safestring import mark_safe
 
 from . import emails
 
+from .legal import email_provider_name
 from .models import Consent, User
 
 
@@ -38,29 +39,52 @@ class DisplayNameField(forms.CharField):
         )
 
 
-# One box per consent, never bundled and never pre-ticked. Wording is a
-# draft for the owner's review.
-CONSENT_BOXES = {
-    "confirm_age": (Consent.AGE, "I confirm I'm 18 or older."),
-    "agree_terms": (Consent.TERMS, mark_safe(
-        'I agree to the <a href="/terms/" target="_blank">Terms of Use</a> and the '
-        '<a href="/privacy/" target="_blank">Privacy Policy</a>.'
-    )),
-    "agree_sensitive": (Consent.SENSITIVE, (
-        "I consent to Me & You storing and processing the intimate and sensitive things I share "
-        "(such as answers and messages about my relationship and sex life), only to run the app "
-        "for me and my partner."
-    )),
-    "agree_transfer": (Consent.TRANSFER, (
-        "I consent to my data being stored and processed outside Nigeria by Me & You's hosting "
-        "and email providers, where it may not be protected to the same standard as Nigerian law."
-    )),
+# One box per consent, never bundled and never pre-ticked. Wording approved
+# by the owner (2026-10-29); box 4 names Render and any configured email
+# provider, matching the beta privacy notice.
+CONSENT_BOX_KINDS = {
+    "confirm_age": Consent.AGE,
+    "agree_terms": Consent.TERMS,  # Now: read the beta privacy notice.
+    "agree_sensitive": Consent.SENSITIVE,
+    "agree_transfer": Consent.TRANSFER,
 }
+
+
+def consent_box_labels():
+    provider = email_provider_name()
+    transfer_details = (
+        f"Render (web service and PostgreSQL database in Oregon, USA) and "
+        f"{provider} (account email delivery)"
+        if provider
+        else "Render (web service and PostgreSQL database in Oregon, USA); account email delivery is disabled "
+        "because no email provider is configured"
+    )
+    return {
+        "confirm_age": "I confirm I'm 18 or older.",
+        "agree_terms": mark_safe(
+            "I've read the <a href=\"/privacy/#playing-safely\" target=\"_blank\">beta privacy notice "
+            "and its safety rules</a> and understand Me &amp; You is a beta."
+        ),
+        "agree_sensitive": (
+            "I consent to Me & You storing and processing the intimate and sensitive things I share "
+            "(such as answers and messages about my relationship and sex life), only to run the app "
+            "for me and my partner. Chat messages are encrypted when stored. Questions-mode answers "
+            "aren't encrypted, but they're deleted as soon as either of you moves to the next question "
+            "or resets the game. Custom questions are kept until your couple space is deleted, or until "
+            "the person who wrote them deletes their account."
+        ),
+        "agree_transfer": (
+            f"I consent to Me & You using {transfer_details}. "
+            "Render may process my data outside Nigeria, where protections may differ from Nigerian law."
+        ),
+    }
 
 
 def add_consent_boxes(form, kinds):
     """Add a required checkbox for each consent kind in `kinds`."""
-    for name, (kind, label) in CONSENT_BOXES.items():
+    labels = consent_box_labels()
+    for name, kind in CONSENT_BOX_KINDS.items():
+        label = labels[name]
         if kind in kinds:
             form.fields[name] = forms.BooleanField(
                 label=label, required=True,
@@ -69,11 +93,11 @@ def add_consent_boxes(form, kinds):
 
 
 def consent_box_fields(form):
-    return [form[name] for name in CONSENT_BOXES if name in form.fields]
+    return [form[name] for name in CONSENT_BOX_KINDS if name in form.fields]
 
 
 def ticked_consents(form):
-    return [kind for name, (kind, _) in CONSENT_BOXES.items() if form.cleaned_data.get(name)]
+    return [kind for name, kind in CONSENT_BOX_KINDS.items() if form.cleaned_data.get(name)]
 
 
 class ConsentForm(forms.Form):
@@ -103,7 +127,7 @@ class RegistrationForm(BaseUserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        add_consent_boxes(self, [kind for kind, _ in CONSENT_BOXES.values()])
+        add_consent_boxes(self, list(CONSENT_BOX_KINDS.values()))
 
     def consent_boxes(self):
         return consent_box_fields(self)

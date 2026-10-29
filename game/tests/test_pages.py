@@ -132,7 +132,8 @@ class QuestionsAnswerPageTests(TestCase):
         self.html = self.client.get("/play/?mode=questions").content.decode()
 
     def test_questions_mode_uses_the_answer_reveal_room(self):
-        self.assertIn('mode === "questions" ? "answer_reveal"', self.html)
+        self.assertIn('<body data-game="answer_reveal"', self.html)
+        self.assertIn('const answering = game === "answer_reveal";', self.html)
 
     def test_it_has_an_answer_box_limited_to_500_characters(self):
         self.assertIn('id="answer-panel"', self.html)

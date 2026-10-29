@@ -300,3 +300,22 @@ test("removing a reaction shows at once too", () => {
   chat.react(4, null);
   assert.deepEqual(chat.state.items[0].reactions, { mine: null, partner: "😂" });
 });
+
+test("the couple's game-mode notices are handed to the page, not shown as chat", () => {
+  FakeSocket.instances = [];
+  const seen = [];
+  const chat = createChatClient({
+    url: "ws://test/ws/chat/",
+    WebSocketImpl: FakeSocket,
+    schedule: () => {},
+    onMode: (notice) => seen.push(notice),
+  });
+  chat.connect();
+  const socket = FakeSocket.instances.at(-1);
+  socket.open();
+  socket.receive(initial([]));
+  const notice = { type: "mode", event: "requested", mode: "would", by_you: false, partner: "Ben" };
+  socket.receive(notice);
+  assert.deepEqual(seen, [notice]);
+  assert.deepEqual(chat.state.items, []);
+});

@@ -1,18 +1,41 @@
 # Deploying Me & You on Render
 
 This is the runbook for the PostgreSQL + Daphne setup in `render.yaml`.
-Nothing here has been deployed yet. Items marked **Verify in Render** depend
-on your Render account and plan and must be checked before relying on them.
+Render uses a manually created web service, so dashboard commands—not
+`render.yaml`—control its active build and start commands.
 
 ## Architecture at launch
 
-- **One always-on web instance running one Daphne process.** Daphne serves
-  both HTTP and WebSockets (`me_nd_you.asgi:application`).
+- **One web instance running one Daphne process.** Daphne serves both HTTP and
+  WebSockets (`me_nd_you.asgi:application`). On Render's free web plan, the
+  service sleeps after 15 minutes without inbound traffic; its next request
+  can take about a minute, and sleeping/restarts can drop WebSocket sessions.
 - **Managed PostgreSQL**, reached through `DATABASE_URL`. Without it the app
   falls back to a local SQLite file, which is for development only; the
   deploy check `game.W002` warns about that.
 - **No Redis.** The channel layer and cache are in memory, inside the single
   Daphne process.
+
+### Free-plan deploy commands
+
+Render's Free web service does not provide a pre-deploy command. Run database
+migrations in the build command instead. This means the current database is
+changed during the build while the previous app version may still be serving;
+take a database backup before deploying whenever the data must be retained.
+The Free PostgreSQL database has no backups and expires after 30 days, so do
+not treat beta data as durable. Account and couple retention cleanup also runs
+hourly in the app.
+
+## Current Hobby workspace limits
+
+The Render dashboard currently identifies Hobby as the workspace's $0/month
+plan, **plus compute costs for paid service plans**. It lists 5 GB of
+bandwidth ($0.15/GB after), 500 build minutes, two custom domains
+($0.25/domain after), unlimited projects with two environments, and up to 25
+services. Monitor bandwidth and do not select a paid compute size unless
+intended. The workspace currently shows 14-day log retention and retention of
+15 builds. These limits can change; confirm them in the dashboard before
+relying on them.
 
 ### What the single process means
 
@@ -40,37 +63,52 @@ question lists reset on every restart.
 | `DATABASE_URL` | The database's **internal** connection string | Dashboard |
 | `TRUSTED_PROXY_COUNT` | Number of proxies in front of the app. **Verify with Render; don't guess.** Until set, all visitors share one rate-limit bucket (`game.W001`). | Dashboard |
 | `ADMIN_URL` | A hard-to-guess path ending in `/` | Dashboard |
-| `EMAIL_PROVIDER` | `brevo`, `resend` or `postmark`. Mail goes through the provider's HTTPS API; there is no SMTP option (Render's free tier blocks SMTP). Unset, mail is only printed to the log (`accounts.W001`). | Dashboard |
-| `EMAIL_API_KEY` | The provider's API key (Postmark: the server token) (`accounts.W002`) | Dashboard |
-| `DEFAULT_FROM_EMAIL` | The sending address, e.g. `hello@your-domain`; it must be verified with the provider. Mail shows as from "Me & You" (`accounts.W003`). | Dashboard |
+| `EMAIL_PROVIDER` | Optional: `brevo`, `resend` or `postmark`. Mail goes through the provider's HTTPS API; there is no SMTP option. Without a provider, outbound email is safely disabled (`accounts.W001`); no email contents are written to logs. | Dashboard |
+| `EMAIL_API_KEY` | The provider's API key (Postmark: the server token) (`accounts.W002` if a provider is selected). | Dashboard |
+| `DEFAULT_FROM_EMAIL` | The sending address, e.g. `hello@your-domain`; it must be verified with the provider (`accounts.W003` if a provider is selected). | Dashboard |
 | `CHAT_ENCRYPTION_KEYS` | One or more Fernet keys, comma-separated; the first encrypts new messages, all can decrypt. **Required:** the app refuses to start in production without it. **Losing it loses every chat message** (see "Chat encryption key" below). | Dashboard only |
+| `PRIVACY_CONTACT_EMAIL` | `meandyouonlineandenquiry@gmail.com` (the owner's privacy contact). The address that answers privacy requests; shown on `/privacy/`, `/terms/` and in account emails (`accounts.W004`). | Dashboard |
 | `SECURE_HSTS_SECONDS` | Optional; default 3600. Raise once HTTPS is confirmed. | Dashboard |
 | `RENDER_EXTERNAL_HOSTNAME` | Set by Render automatically | — |
 
 `render.yaml` lists the dashboard-only variables with `sync: false`, so their
 values never enter the repository.
 
-## Before the first deploy
+## Deployment checklist
 
 1. **Rotate `SECRET_KEY`** in the dashboard.
-2. **Check whether the service is managed by this Blueprint.** If it was
-   created by hand, Render ignores `render.yaml`, and the dashboard's build,
-   start and pre-deploy commands are what actually run. Make them match
-   `render.yaml`. (**Verify in Render.**)
-3. **Choose plans** (cost decisions): an always-on web instance, and a
-   managed PostgreSQL plan with backups. (**Verify in Render**: current
-   prices, free-tier limits, whether `preDeployCommand` is available on the
-   chosen instance type, and the database's backup schedule and retention.)
+2. **Keep the dashboard commands aligned with `render.yaml`.** The manually
+   created service uses `pip install -r requirements.txt && python manage.py
+   collectstatic --noinput && python manage.py migrate --noinput` as its build
+   command and `daphne -b 0.0.0.0 -p $PORT me_nd_you.asgi:application` as its
+   start command. Do not configure a pre-deploy command on the Free plan.
+3. **Confirm the plan and region before relying on resources.** The current
+   web service uses Render's Free instance; the PostgreSQL database was
+   created on the Free plan in Oregon. It is limited to 1 GB, expires 30 days
+   after creation, has a 14-day upgrade grace period, and has no backups;
+   after the grace period it is deleted. Do not treat it as durable storage.
+   Use a paid database with backups if beta data must be retained.
 4. **Find out the proxy count** for `TRUSTED_PROXY_COUNT`.
-5. **Choose an email provider** (Brevo, Resend or Postmark), create an API
-   key and verify the sending address or domain with them. (**Verify with
-   the provider**: free-tier sending limits and what verification needs.)
+5. **Email is deferred for this beta.** Leave `EMAIL_PROVIDER`,
+   `EMAIL_API_KEY` and `DEFAULT_FROM_EMAIL` unset. Production then refuses to
+   send email through the console or logs. Email verification, password
+   recovery and account/closure email notices are unavailable; users must
+   keep their passwords safe. `accounts.W001` is expected in `check --deploy`.
+   Before enabling a provider later, verify delivery and its processing terms,
+   update the privacy/consent text and bump `POLICY_VERSION`.
 6. **Create the chat encryption key** on your own computer, put it in
    `CHAT_ENCRYPTION_KEYS` in the dashboard, and **store a copy outside
    Render** (a password manager) before the first chat message exists:
    ```bash
    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
+7. **Review `/privacy/` before deployment.** The notice distinguishes
+   confirmed facts from unverified ones; do not replace unknowns with guesses.
+   Update it if provider facts change. `check --deploy` refuses while `[CHECK]` or
+   `[DEPENDS ON]` placeholders remain (`accounts.E002`/`E003`), while
+   `POLICY_VERSION` contains "draft" (`accounts.E001`), or while
+   `PRIVACY_CONTACT_EMAIL` is unset (`accounts.E004`). Changing
+   `POLICY_VERSION` later asks every user to accept again.
 
 ## Chat encryption key
 
@@ -99,26 +137,37 @@ data and that system has been removed. The PostgreSQL database starts empty.
 
 ## First deploy
 
-1. Create the PostgreSQL database and set `DATABASE_URL` to its internal
-   connection string.
+1. Set `DATABASE_URL` to the new database's internal connection string. Keep
+   the connection string private; enter it directly in Render's environment
+   settings and never paste it into chat or source control.
 2. Set the other dashboard variables (table above).
 3. Deploy. The build installs dependencies and collects static files; the
    pre-deploy step runs `migrate`, which on an empty database creates the
-   accounts, couples, game, play and chat tables and loads the 2,067 questions
-   (the original 1,917 plus 150 approved Truth or Dare dares).
+   accounts, couples, game, play and chat tables and loads the 3,105 questions
+   (the original 1,917, 150 approved Truth or Dare dares, and 1,038 of the
+   owner's new questions).
 4. Create an admin: `python manage.py createsuperuser` (email and password).
 5. Run the checks below.
 
 ## After every deploy: checks
 
-- `python manage.py check --deploy` shows no warnings (`game.W001`,
-  `game.W002` and `accounts.W001`-`W003` must be gone).
-- "Forgot your password?" on the sign-in page, for your own account: the
-  email arrives, the link works, and other devices are signed out.
+- `python manage.py check --deploy` has no errors. `accounts.W001` is expected
+  while email is intentionally disabled; otherwise verify the provider and
+  sending-address warnings (`accounts.W002`/`W003`), and resolve the remaining
+  database, proxy and policy warnings (`game.W001`/`W002`, `accounts.E001`-`E004`).
+- The pre-deploy log shows `Purged N account(s) and N closed couple
+  space(s).` (`purge_deleted_accounts` runs after `migrate`). It permanently
+  deletes accounts deleted over 7 days ago and couple spaces closed over 30
+  days ago. **On a database copied from elsewhere, spaces closed over 30
+  days ago are deleted on the first deploy.**
+- `/privacy/` shows the contact address and no yellow notes; `/terms/` is not
+  published (deferred).
+- When email is configured: test password recovery end to end. While it is
+  disabled, the app clearly states password recovery is unavailable.
 - The site loads over HTTPS, and `/admin/` is not the admin path.
 - Two browsers on the same couple: Next on one shows the question on the
   other (WebSockets work).
-- A new couple's first load in "Questions" mode shows 549 left: 550
+- A new couple's first load in "Questions" mode shows 889 left: 890
   questions, with the first one on the card.
 - In "Questions" mode, answer on one device: the other shows "<name> has
   answered." but not the answer, until it answers too.
@@ -128,17 +177,17 @@ data and that system has been removed. The PostgreSQL database starts empty.
 
 ## Backups
 
-- Rely on the provider's automatic backups (**verify schedule and
-  retention**), and **take a manual backup immediately before any deploy
-  that changes the schema**:
+- The selected free database plan has no backups. Database expiry or loss can
+  permanently erase beta accounts and game data. For a plan with backups,
+  verify the schedule and retention, and **take a manual backup immediately
+  before any deploy that changes the schema**:
 
   ```bash
   pg_dump --format=custom --no-owner "$DATABASE_URL" > backup-$(date +%Y%m%d-%H%M).dump
   ```
 
-- Before launch, restore one backup into a throwaway database once
-  (`pg_restore --no-owner -d <throwaway url> backup.dump`) to prove the
-  backups work.
+- Before relying on backups, restore one into a throwaway database once
+  (`pg_restore --no-owner -d <throwaway url> backup.dump`) to prove they work.
 
 ## Rollback
 

@@ -1,4 +1,4 @@
-{% if not user.email_verified_at and not request.session.verify_banner_dismissed %}
+{% if email_enabled and not user.email_verified_at and not request.session.verify_banner_dismissed %}
   <div class="banner" role="status">
     <span>Please verify your email. We sent you a link.</span>
     <form method="post" action="/accounts/verify/resend/">

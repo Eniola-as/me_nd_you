@@ -3,6 +3,7 @@ each stored with its time and policy version; existing accounts must accept
 before using anything; the profile lists them."""
 
 import importlib
+from html import unescape
 
 from asgiref.sync import async_to_sync
 from channels.testing import WebsocketCommunicator
@@ -10,6 +11,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 import me_nd_you.asgi
 from accounts.consents import CONSENT_KINDS, missing_consents, record_consents
@@ -36,9 +38,37 @@ class SignUpConsentTests(TestCase):
         for box in BOXES:
             self.assertIn(f'name="{box}"', html)
         self.assertIn("I confirm I&#x27;m 18 or older.", html)
-        self.assertIn('href="/terms/"', html)
         self.assertIn('href="/privacy/"', html)
+        self.assertNotIn('href="/terms/"', html)  # Deferred for the beta.
         self.assertNotIn("checked", html)  # Nothing is ticked for you.
+
+    @override_settings(EMAIL_PROVIDER="brevo")
+    def test_the_four_boxes_say_exactly_what_was_approved(self):
+        from accounts.forms import RegistrationForm
+
+        # As displayed: tags stripped, entities like &amp; shown as text.
+        labels = [" ".join(unescape(strip_tags(str(box.label))).split()) for box in RegistrationForm().consent_boxes()]
+        self.assertEqual(labels, [
+            "I confirm I'm 18 or older.",
+            "I've read the beta privacy notice and its safety rules and understand Me & You is a beta.",
+            "I consent to Me & You storing and processing the intimate and sensitive things I share (such as "
+            "answers and messages about my relationship and sex life), only to run the app for me and my partner. "
+            "Chat messages are encrypted when stored. Questions-mode answers aren't encrypted, but they're "
+            "deleted as soon as either of you moves to the next question or resets the game. Custom questions "
+            "are kept until your couple space is deleted, or until the person who wrote them deletes their "
+            "account.",
+            "I consent to Me & You using Render (web service and PostgreSQL database in Oregon, USA) "
+            "and Brevo (account email delivery). Render may process my data outside Nigeria, where "
+            "protections may differ from Nigerian law.",
+        ])
+
+    @override_settings(EMAIL_PROVIDER="")
+    def test_box_4_discloses_that_email_delivery_is_disabled(self):
+        from accounts.forms import RegistrationForm
+
+        label = strip_tags(str(RegistrationForm().consent_boxes()[3].label))
+        self.assertIn("account email delivery is disabled because no email provider is configured", label)
+        self.assertIn("PostgreSQL database in Oregon, USA", label)
 
     def test_each_box_is_required(self):
         for box in BOXES:
@@ -88,9 +118,8 @@ class ExistingAccountTests(TestCase):
         self.assertEqual(response.json()["code"], "consent_required")
         self.assertFalse(CustomQuestion.objects.exists())
 
-    def test_policy_pages_and_signing_out_still_work(self):
-        for page in ["/privacy/", "/terms/"]:
-            self.assertEqual(self.client.get(page).status_code, 200)
+    def test_the_privacy_notice_and_signing_out_still_work(self):
+        self.assertEqual(self.client.get("/privacy/").status_code, 200)
         self.client.post("/accounts/logout/")
         self.assertNotIn("_auth_user_id", self.client.session)
 
@@ -140,7 +169,7 @@ class ProfileConsentListTests(TestCase):
         html = client.get("/accounts/profile/").content.decode()
         self.assertIn("2 November 2026", html)
         self.assertIn("18 or older", html)
-        self.assertIn("Terms of Use and Privacy Policy", html)
+        self.assertIn("Read the beta privacy notice", html)
         self.assertIn("intimate", html)
         self.assertIn("outside Nigeria", html)
         self.assertIn("delete your account", html)

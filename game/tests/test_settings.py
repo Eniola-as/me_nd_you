@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -213,7 +214,10 @@ class HttpsSettingsTests(SimpleTestCase):
         values = load_settings({"DEBUG": "True"}, ["SECURE_SSL_REDIRECT"])
         self.assertFalse(values["SECURE_SSL_REDIRECT"])
 
-    def test_deploy_check_reports_no_warnings(self):
+    def test_deploy_check_reports_nothing_but_the_unfinished_policy(self):
+        # Option (a), owner 2026-10-29: until the owner finishes the policy,
+        # the only problems allowed are the policy errors (accounts.E001-E003,
+        # accounts/test_policy_deploy_checks.py). Nothing else may appear.
         env = {k: v for k, v in os.environ.items() if k not in SETTINGS_ENV_KEYS}
         env.update(PRODUCTION_ENV)
         result = subprocess.run(
@@ -223,7 +227,11 @@ class HttpsSettingsTests(SimpleTestCase):
             capture_output=True,
             text=True,
         )
-        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        output = result.stderr + result.stdout
+        issues = set(re.findall(r"\(([a-z]+\.[EW]\d{3})\)", output))
+        self.assertTrue(issues <= {"accounts.E001", "accounts.E002", "accounts.E003"}, output)
+        if not issues:
+            self.assertEqual(result.returncode, 0, output)
 
 
 class AllowedHostsTests(SimpleTestCase):

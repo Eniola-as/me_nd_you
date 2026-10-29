@@ -59,3 +59,23 @@ class RoomEvent(models.Model):
             ),
         ]
         ordering = ["room", "version"]
+
+
+class CoupleMode(models.Model):
+    """The game mode a couple is playing: shared by both partners (owner,
+    2026-10-29). After the first mode, a change is a request the other
+    partner must accept. Every change goes through play.modes, which bumps
+    `version` by exactly one."""
+
+    couple = models.OneToOneField("couples.Couple", on_delete=models.CASCADE, primary_key=True,
+                                  related_name="game_mode")
+    mode = models.CharField(max_length=20)  # A question mode, e.g. "truth".
+    version = models.PositiveIntegerField(default=1)
+    pending_mode = models.CharField(max_length=20, blank=True, default="")
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.couple}: {self.mode}{' (switch requested)' if self.pending_mode else ''}"

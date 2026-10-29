@@ -17,7 +17,11 @@
     <button type="submit">Sign in</button>
   </form>
   <p class="links">
-    <a href="/accounts/password/reset/">Forgot your password?</a><br />
+    {% if email_enabled %}
+      <a href="/accounts/password/reset/">Forgot your password?</a><br />
+    {% else %}
+      Password recovery is unavailable while email delivery is disabled.<br />
+    {% endif %}
     New here? <a href="/accounts/register/">Create an account</a>
   </p>
 {% endblock %}

@@ -39,7 +39,9 @@ class BankSplitTests(TestCase):
     # (migration 0009) are dares by approval, not by this rule.
 
     def original(self):
-        return Question.objects.filter(mode="truth").exclude(text__in=APPROVED_NEW_DARES)
+        from game.tests.test_new_questions_import import TEXTS as IMPORTED  # Migration 0011.
+
+        return Question.objects.filter(mode="truth").exclude(text__in=APPROVED_NEW_DARES).exclude(text__in=IMPORTED)
 
     def test_the_bank_has_381_truths_and_101_dares(self):
         truth_mode = self.original()

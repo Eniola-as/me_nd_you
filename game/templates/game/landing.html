@@ -26,6 +26,7 @@
     <meta name="theme-color" content="#e75480" />
 
     {% include "accounts/_font.html" %}
+    <style>.beta-label{display:inline-block;margin-left:8px;padding:2px 8px;border:1px solid #f5c542;border-radius:999px;color:#f5c542;font-size:12px;font-weight:600;vertical-align:middle;}</style>
 
     <style>
       :root {
@@ -251,7 +252,7 @@
           />
         </svg>
 
-        <h1>Me & You</h1>
+        <h1>Me & You <span class="beta-label">Beta</span></h1>
 
         <p class="tagline">A private game for the two of you.</p>
         <a class="button" href="/accounts/login/">Sign in</a>
@@ -322,22 +323,7 @@
           });
         }
       });
-
-      // Service Worker Registration
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", async () => {
-          try {
-            await navigator.serviceWorker.register(
-              "/static/service-worker.js",
-              {
-                scope: "/static/",
-              }
-            );
-          } catch (err) {
-            console.error("Service Worker registration failed:", err);
-          }
-        });
-      }
     </script>
+    {% include "accounts/_pwa.html" %}
   </body>
 </html>

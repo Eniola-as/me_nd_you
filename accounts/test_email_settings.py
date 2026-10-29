@@ -16,14 +16,20 @@ from django.test import SimpleTestCase, override_settings
 from game.tests.test_settings import PRODUCTION_ENV
 from game.tests.utils import SETTINGS_ENV_KEYS, load_settings
 
-NAMES = ["EMAIL_BACKEND", "ANYMAIL", "DEFAULT_FROM_EMAIL"]
+NAMES = ["EMAIL_BACKEND", "EMAIL_ENABLED", "ANYMAIL", "DEFAULT_FROM_EMAIL"]
 
 
 class EmailSettingsTests(SimpleTestCase):
-    def test_locally_mail_goes_to_the_console(self):
-        values = load_settings({}, NAMES)
+    def test_development_mail_goes_to_the_console(self):
+        values = load_settings({"DEBUG": "True"}, NAMES)
         self.assertEqual(values["EMAIL_BACKEND"], "django.core.mail.backends.console.EmailBackend")
+        self.assertTrue(values["EMAIL_ENABLED"])
         self.assertEqual(values["ANYMAIL"], {})
+
+    def test_production_without_a_provider_fails_closed(self):
+        values = load_settings({"DEBUG": "False"}, NAMES)
+        self.assertEqual(values["EMAIL_BACKEND"], "accounts.email_backend.DisabledEmailBackend")
+        self.assertFalse(values["EMAIL_ENABLED"])
 
     def test_each_provider_uses_its_https_api_backend_and_key(self):
         for provider, backend, key_name in [
@@ -93,7 +99,9 @@ class EmailDeployCheckTests(SimpleTestCase):
         return result.stderr + result.stdout
 
     def test_warns_when_production_would_print_mail_to_the_console(self):
-        self.assertIn("accounts.W001", self.deploy_check(EMAIL_PROVIDER=None, EMAIL_API_KEY=None))
+        output = self.deploy_check(EMAIL_PROVIDER=None, EMAIL_API_KEY=None)
+        self.assertIn("accounts.W001", output)
+        self.assertIn("account email delivery is disabled", output)
 
     def test_warns_when_the_provider_has_no_api_key(self):
         self.assertIn("accounts.W002", self.deploy_check(EMAIL_API_KEY=None))

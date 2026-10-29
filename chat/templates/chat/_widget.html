@@ -392,6 +392,8 @@
       url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws/chat/`,
       onChange: render,
       where,
+      // Game-mode notices for this page's mode banner (game/_mode_banner.html).
+      onMode: (notice) => window.dispatchEvent(new CustomEvent("couple-mode", { detail: notice })),
     });
     window.chatWidget = chat; // For the browser tests.
 

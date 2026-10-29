@@ -2,7 +2,10 @@
 {% block title %}Confirm your email{% endblock %}
 {% block content %}
   <h1>Confirm your email</h1>
-  {% if state == "verified" %}
+  {% if state == "disabled" %}
+    <p>Email delivery is disabled for this beta, so verification links cannot be sent.</p>
+    <a class="button" href="/space/">Go to your couple space</a>
+  {% elif state == "verified" %}
     <p>Your email is verified. Thank you!</p>
     <a class="button" href="/space/">Go to your couple space</a>
   {% elif state == "invalid" %}

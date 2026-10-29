@@ -36,10 +36,14 @@ class BankTests(TestCase):
                              [("truth", "dare")], text)
 
     def test_truth_or_dare_now_has_251_dares_and_the_same_381_truths(self):
-        truth_mode = Question.objects.filter(mode="truth")
+        # Counted without the later import (migration 0011, its own tests).
+        from game.tests.test_new_questions_import import TEXTS as IMPORTED
+
+        bank = Question.objects.exclude(text__in=IMPORTED)
+        truth_mode = bank.filter(mode="truth")
         self.assertEqual(truth_mode.filter(kind="dare").count(), 251)
         self.assertEqual(truth_mode.filter(kind="truth").count(), 381)
-        self.assertEqual(Question.objects.count(), 1917 + 150)
+        self.assertEqual(bank.count(), 1917 + 150)
 
 
 class NewDaresMigrationTests(TransactionTestCase):

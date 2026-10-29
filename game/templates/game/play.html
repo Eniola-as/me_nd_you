@@ -202,6 +202,23 @@
         margin: 0 0 10px;
       }
 
+      /* "hidden" must win over the display rules below. */
+      #add-modal [hidden] {
+        display: none;
+      }
+      #new-category-choice label {
+        display: block;
+        font-size: 14px;
+        color: #ddd;
+        margin-bottom: 6px;
+      }
+      #new-category {
+        width: 100%;
+        padding: 10px;
+        border-radius: 10px;
+        font: inherit;
+        font-size: 16px;
+      }
       #add-modal fieldset {
         border: none;
         padding: 0;
@@ -278,6 +295,34 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
+      /* Would You Rather: private picks, revealed when both have picked. */
+      #pick-panel {
+        width: 90%;
+        max-width: 400px;
+        margin-top: 20px;
+      }
+      .pick-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .pick-options button {
+        flex: none;
+        min-height: 64px;
+      }
+      .pick-options button[aria-pressed="true"] {
+        background: var(--accent);
+        color: #fff;
+      }
+      #pick-status,
+      #pick-result {
+        min-height: 1.4em;
+        margin: 8px 0 0;
+        color: #ddd;
+      }
+      #pick-reveal[hidden] {
+        display: none;
+      }
       .visually-hidden {
         position: absolute;
         width: 1px;
@@ -288,9 +333,10 @@
       }
     </style>
   </head>
-  <body>
+  <body data-game="{{ game }}" data-play-mode="{{ mode_state.mode }}">
     <h2>Let’s Play!</h2>
     <div id="mode-title">...loading</div>
+    {% include "game/_mode_banner.html" %}
     <p id="turn-banner" role="status" hidden></p>
     <p id="card-kind" hidden></p>
 
@@ -328,10 +374,25 @@
       </div>
     </section>
 
+    <section id="pick-panel" aria-label="Your pick" hidden>
+      <p class="pick-hint">Pick one. Your partner sees it once you've both picked.</p>
+      <div class="pick-options">
+        <button type="button" id="pickA" aria-pressed="false">Option A</button>
+        <button type="button" id="pickB" aria-pressed="false">Option B</button>
+      </div>
+      <p id="pick-status" role="status"></p>
+      <div id="pick-reveal" hidden>
+        <div class="answer-box"><h3>You</h3><p id="pick-mine"></p></div>
+        <div class="answer-box"><h3 id="pick-partner-name">Your partner</h3><p id="pick-partner"></p></div>
+        <p id="pick-result"></p>
+      </div>
+    </section>
+
     <div class="buttons">
       <button type="button" id="nextBtn">Next Question</button>
       <button type="button" id="truthBtn" hidden>Truth</button>
       <button type="button" id="dareBtn" hidden>Dare</button>
+      <button type="button" id="drawBtn" hidden>Draw a challenge</button>
       <button type="button" id="skipBtn" hidden>Skip</button>
       <button type="button" id="switchBtn">Switch Mode</button>
       <button type="button" id="addBtn">Add Question</button>
@@ -361,7 +422,17 @@
           placeholder="Write a question for you both..."
           required
         ></textarea>
-        <fieldset id="new-kind-choice" hidden>
+        <div id="new-category-choice"{% if mode_state.mode != "mixed" %} hidden{% endif %}>
+          <label for="new-category">Category</label>
+          <select id="new-category">
+            <option value="questions">Questions</option>
+            <option value="truth">Truth or Dare</option>
+            <option value="challenge">Challenge</option>
+            <option value="spicy">Spicy Only</option>
+            <option value="would">Would You Rather</option>
+          </select>
+        </div>
+        <fieldset id="new-kind-choice"{% if mode_state.mode != "truth" %} hidden{% endif %}>
           <legend class="visually-hidden">Truth or dare?</legend>
           <input type="radio" name="new-kind" id="new-kind-truth" value="truth" checked />
           <label for="new-kind-truth">Truth</label>
@@ -387,14 +458,19 @@
     <script src="{% static 'js/socket-client.js' %}"></script>
     <script src="{% static 'js/room-client.js' %}"></script>
     <script src="{% static 'js/card.js' %}"></script>
+    <script src="{% static 'js/prompt-form.js' %}"></script>
     <script>
       const params = new URLSearchParams(window.location.search);
       const mode = params.get("mode");
-      // Truth or Dare plays in turns on its own room; Questions mode adds
-      // private answers with a reveal; the other modes share a plain deck.
-      const turnBased = mode === "truth";
-      const answering = mode === "questions";
-      const game = turnBased ? "truth_or_dare" : mode === "questions" ? "answer_reveal" : "questions";
+      // The server says which game this mode plays (play.modes.MODE_GAMES):
+      // Truth or Dare and Challenges in turns; Questions with private
+      // answers and Would You Rather with private picks, each revealed
+      // together; Spicy Only and Mixed as a shared deck.
+      const game = document.body.dataset.game;
+      const challengeTurns = game === "challenge_turns";
+      const turnBased = game === "truth_or_dare" || challengeTurns;
+      const answering = game === "answer_reveal";
+      const picking = game === "pick_reveal";
 
       function csrfToken() {
         const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
@@ -431,10 +507,16 @@
         .getElementById("dareBtn")
         .addEventListener("click", () => room.act("choose", { kind: "dare" }));
       document.getElementById("skipBtn").addEventListener("click", () => room.act("skip"));
+      document.getElementById("drawBtn").addEventListener("click", () => room.act("draw"));
       document.getElementById("switchBtn").addEventListener("click", () => {
         window.location.href = "/modes/";
       });
       document.getElementById("addBtn").addEventListener("click", openModal);
+      // In Mixed Mode the Truth/Dare choice follows the chosen category.
+      const newCategory = document.getElementById("new-category");
+      newCategory.addEventListener("change", () => {
+        document.getElementById("new-kind-choice").hidden = !promptForm.promptControls(mode, newCategory.value).showKind;
+      });
       document.getElementById("resetBtn").addEventListener("click", () => room.act("reset"));
 
       function openModal() {
@@ -452,13 +534,16 @@
       async function submitQuestion(e) {
         e.preventDefault();
         const text = document.getElementById("new-question").value.trim();
-        if (!text) return;
+        const promptBody = promptForm.promptPayload({
+          pageMode: mode, category: newCategory.value, kind: selectedKind(), text,
+        });
+        if (!promptBody) return;
 
         try {
           const res = await fetch("/api/space/custom-questions/", {
             method: "POST",
             headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
-            body: JSON.stringify(turnBased ? { text, mode, kind: selectedKind() } : { text, mode }),
+            body: JSON.stringify(promptBody),
           });
 
           if (res.ok) {
@@ -479,7 +564,7 @@
       let shownKey = null;
       const room = createRoomClient({
         url: `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/room/${game}/${encodeURIComponent(mode)}/`,
-        onState: turnBased ? renderTurns : answering ? renderAnswers : renderRoomState,
+        onState: turnBased ? renderTurns : answering ? renderAnswers : picking ? renderPicks : renderRoomState,
         onError(error) {
           const tap = Object.values(answerReactionTaps).find((t) => t.id === error.requestId);
           if (tap) {
@@ -490,6 +575,8 @@
               showFeedback(`Couldn't react: ${error.detail || "please try again."}`);
               renderAnswerReactions(lastAnswerReactions);
             }
+          } else if (error.reason === "stale" && pendingPick && error.requestId === pendingPick.id) {
+            pendingPick.stale = true; // Resent on the next state if it's the same card.
           } else if (error.reason === "stale" && pendingAnswer && error.requestId === pendingAnswer.id) {
             // The partner acted at the same moment; resend once the current
             // state arrives, if it's still the same card.
@@ -623,6 +710,75 @@
         }
       }
 
+      // Would You Rather. The server sends the partner's pick only once both
+      // have picked; until then this page only learns that it exists.
+      const pickPanel = document.getElementById("pick-panel");
+      const pickButtons = { a: document.getElementById("pickA"), b: document.getElementById("pickB") };
+      const pickStatus = document.getElementById("pick-status");
+      const pickReveal = document.getElementById("pick-reveal");
+      let pickCard = null; // The card the pick buttons belong to.
+      let pickOptions = null;
+      let pendingPick = null; // { id, choice, card, stale } until it's saved.
+
+      function optionLabel(choice) {
+        const letter = choice.toUpperCase();
+        return pickOptions ? pickOptions[choice === "a" ? 0 : 1] : `Option ${letter}`;
+      }
+
+      function sendPick(choice) {
+        if (!pickCard) return;
+        const id = room.act("pick", { card: pickCard, choice });
+        pendingPick = { id, choice, card: pickCard, stale: false };
+        for (const [key, button] of Object.entries(pickButtons)) button.setAttribute("aria-pressed", String(key === choice));
+      }
+      pickButtons.a.addEventListener("click", () => sendPick("a"));
+      pickButtons.b.addEventListener("click", () => sendPick("b"));
+
+      function renderPicks(message) {
+        renderRoomState(message);
+        const { state, names } = message;
+        const partner = (names && names.partner) || "Your partner";
+        const current = state.current;
+        pickPanel.hidden = !current || state.finished;
+        if (!current) return;
+
+        if (current.key !== pickCard) {
+          pickCard = current.key;
+          pickOptions = state.options;
+          pickButtons.a.textContent = optionLabel("a");
+          pickButtons.b.textContent = optionLabel("b");
+        }
+        if (pendingPick) {
+          if (pendingPick.card !== current.key || state.phase !== "picking") {
+            pendingPick = null; // The card moved on, or the picks are revealed.
+          } else if (state.my_pick === pendingPick.choice) {
+            pendingPick = null; // Saved.
+          } else if (pendingPick.stale) {
+            sendPick(pendingPick.choice);
+          }
+        }
+        const shown = pendingPick ? pendingPick.choice : state.my_pick;
+        for (const [key, button] of Object.entries(pickButtons)) {
+          button.setAttribute("aria-pressed", String(key === shown));
+        }
+
+        const revealed = state.phase === "revealed";
+        document.querySelector("#pick-panel .pick-options").hidden = revealed;
+        pickReveal.hidden = !revealed;
+        document.getElementById("pick-partner-name").textContent = partner;
+        if (revealed) {
+          document.getElementById("pick-mine").textContent = optionLabel(state.my_pick);
+          document.getElementById("pick-partner").textContent = optionLabel(state.partner_pick);
+          document.getElementById("pick-result").textContent =
+            state.my_pick === state.partner_pick ? "You picked the same!" : "You picked differently.";
+          pickStatus.textContent = "You've both picked.";
+        } else if (state.my_pick) {
+          pickStatus.textContent = `Your pick is saved. Waiting for ${partner}.`;
+        } else {
+          pickStatus.textContent = state.partner_picked ? `${partner} has picked.` : "";
+        }
+      }
+
       // Truth or Dare: the banner says whose turn it is (the first turn is a
       // random coin toss), and only the right player's buttons work. The
       // server checks all of this too.
@@ -633,14 +789,18 @@
       const cardKind = document.getElementById("card-kind");
       const KIND_LABELS = { truth: "Truth", dare: "Dare" };
 
-      if (turnBased) {
+      const drawBtn = document.getElementById("drawBtn");
+      if (challengeTurns) {
+        document.getElementById("nextBtn").hidden = true;
+        for (const el of [drawBtn, skipBtn, turnBanner]) el.hidden = false;
+      } else if (turnBased) {
         document.getElementById("nextBtn").hidden = true;
         for (const el of [truthBtn, dareBtn, skipBtn, turnBanner]) el.hidden = false;
-        document.getElementById("new-kind-choice").hidden = false;
       }
 
       function renderTurns({ state, names }) {
         const partner = (names && names.partner) || "Your partner";
+        if (challengeTurns) return renderChallengeTurns(state, partner);
         remainingCountSpan.textContent = state.remaining;
         if (state.finished && !state.current) {
           turnBanner.textContent = "No cards left. Press Reset to play again.";
@@ -675,6 +835,35 @@
         skipBtn.disabled = !(current && state.drawn_by_you && kindLeft > 0);
       }
 
+      // Challenges: whoever's turn it is draws; the drawer may skip.
+      function renderChallengeTurns(state, partner) {
+        remainingCountSpan.textContent = state.remaining;
+        if (state.finished && !state.current) {
+          turnBanner.textContent = "No challenges left. Press Reset to play again.";
+        } else if (state.draws === 0) {
+          turnBanner.textContent = state.first_turn_yours
+            ? "Coin toss: you go first. Draw a challenge."
+            : `Coin toss: ${partner} goes first.`;
+        } else {
+          turnBanner.textContent = state.your_turn ? "Your turn: draw a challenge." : `${partner}'s turn.`;
+        }
+        const current = state.current;
+        if (!current) {
+          shownKey = null;
+          cardKind.hidden = true;
+          card.showMessage(state.your_turn ? "Draw a challenge to start." : `Waiting for ${partner} to draw.`);
+        } else {
+          cardKind.textContent = state.drawn_by_you ? "Your challenge" : `${partner}'s challenge`;
+          cardKind.hidden = false;
+          if (current.key !== shownKey) {
+            shownKey = current.key;
+            card.showQuestion(current.text);
+          }
+        }
+        drawBtn.disabled = !state.your_turn || state.remaining === 0;
+        skipBtn.disabled = !(current && state.drawn_by_you && state.remaining > 0);
+      }
+
       const modeMap = {
         questions: "Questions",
         truth: "Truth or Dare",
@@ -687,22 +876,6 @@
       cardBack.textContent = modeMap[mode] || "Game Mode";
       document.getElementById("mode-title").textContent =
         modeMap[mode] || "Game Mode";
-
-      // Service Worker Registration
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", async () => {
-          try {
-            await navigator.serviceWorker.register(
-              "/static/service-worker.js",
-              {
-                scope: "/static/",
-              }
-            );
-          } catch (err) {
-            console.error("Service Worker registration failed:", err);
-          }
-        });
-      }
 
       // Show guide on first visit
       function showGuide() {
@@ -723,6 +896,7 @@
         showGuide();
       });
     </script>
+    {% include "accounts/_pwa.html" %}
     {% include "chat/_widget.html" with where="play" %}
   </body>
 </html>

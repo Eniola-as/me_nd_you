@@ -9,7 +9,8 @@ from .consents import SESSION_KEY, missing_consents
 # Reachable before consenting: the consent page itself, reading the policy,
 # signing out, and static files. The admin is staff tooling, not the app.
 # Deleting the account stays possible for anyone who doesn't agree.
-OPEN_PREFIXES = ("/accounts/consent/", "/accounts/logout/", "/accounts/profile/delete/", "/privacy/", "/terms/")
+OPEN_PREFIXES = ("/accounts/consent/", "/accounts/logout/", "/accounts/profile/delete/", "/privacy/",
+                 "/offline/", "/service-worker.js")
 
 
 class ConsentRequiredMiddleware:

@@ -19,3 +19,11 @@ def user_group_name(user_id):
     payload = json.dumps(["play", "user", str(user_id), "v1"]).encode()
     digest = hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
     return f"user.{digest}"
+
+
+def mode_group_name(user_id):
+    """The Channels group that tells one user's member pages about the
+    couple's game mode (joined by the chat connection every member page has)."""
+    payload = json.dumps(["play", "mode", str(user_id), "v1"]).encode()
+    digest = hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
+    return f"mode.{digest}"

@@ -27,6 +27,7 @@ from couples.notices import send_closure_notices
 from . import deletion, emails
 from .consents import missing_consents, record_consents
 from .export import export_for
+from .legal import email_provider_name
 from .forms import (
     ConsentForm,
     EmailAuthenticationForm,
@@ -88,7 +89,9 @@ def register(request):
         return redirect(_next_url(request))
     if form.existing_user is not None:
         emails.send_signup_alert(request, form.existing_user)
-    return render(request, "accounts/register.html", {"form": form, "next": _next_url(request)})
+    return render(request, "accounts/register.html", {
+        "form": form, "next": _next_url(request), "email_enabled": settings.EMAIL_ENABLED,
+    })
 
 
 @login_required
@@ -107,6 +110,7 @@ def _render_profile(request, form=None, **extra):
     return render(request, "accounts/profile.html", {
         "form": form or ProfileForm(instance=request.user),
         "consents": request.user.consents.order_by("given_at", "pk"),
+        "email_enabled": settings.EMAIL_ENABLED,
         **extra,
     })
 
@@ -124,15 +128,16 @@ def delete_account(request):
     user = request.user
     couple = deletion.request_deletion(user)
     send_closure_notices(request, couple)
-    try:
-        emails.send_account_email(user, "account_deletion", {
-            "date": deletion.deletion_date(user),
-            "link": request.build_absolute_uri("/accounts/login/"),
-            "contact_email": settings.PRIVACY_CONTACT_EMAIL,
-            "closed_couple": couple is not None,
-        })
-    except Exception:
-        logger.exception("Could not send an account deletion email.")
+    if settings.EMAIL_ENABLED:
+        try:
+            emails.send_account_email(user, "account_deletion", {
+                "date": deletion.deletion_date(user),
+                "link": request.build_absolute_uri("/accounts/login/"),
+                "contact_email": settings.PRIVACY_CONTACT_EMAIL,
+                "closed_couple": couple is not None,
+            })
+        except Exception:
+            logger.exception("Could not send an account deletion email.")
     logout(request)
     return redirect("/accounts/deleted/")
 
@@ -185,12 +190,14 @@ def consent(request):
 
 
 @require_http_methods(["GET"])
-def legal_page(request, page):
-    """The privacy policy or the terms of use (public pages)."""
-    return render(request, f"accounts/{page}.html", {
+def privacy_notice(request):
+    """The beta privacy notice (public). The full policy and the terms stay
+    unpublished until their legal review."""
+    return render(request, "accounts/privacy.html", {
         "contact_email": settings.PRIVACY_CONTACT_EMAIL or "[contact email not set yet]",
         "policy_version": settings.POLICY_VERSION,
         "is_draft": "draft" in settings.POLICY_VERSION.lower(),
+        "email_provider": email_provider_name(),
     })
 
 
@@ -198,6 +205,11 @@ class EmailLoginView(LoginView):
     template_name = "accounts/login.html"
     authentication_form = EmailAuthenticationForm
     redirect_authenticated_user = True
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["email_enabled"] = settings.EMAIL_ENABLED
+        return context
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -216,6 +228,8 @@ def verify_email(request):
     """Verification links look like /accounts/verify/#<token>. Browsers never
     send the part after "#"; this page reads it and posts it back. Works
     without signing in, and doesn't sign anyone in."""
+    if not settings.EMAIL_ENABLED:
+        return render(request, "accounts/verify_email.html", {"state": "disabled"})
     if request.method == "GET":
         return render(request, "accounts/verify_email.html", {"state": "pending"})
     user = emails.user_for_verification_token(request.POST.get("token", ""))
@@ -229,6 +243,7 @@ RESEND_MESSAGES = {
     emails.COOLDOWN: (messages.INFO, "We just sent you a link. Check your inbox, or try again in a couple of minutes."),
     emails.ALREADY_VERIFIED: (messages.INFO, "Your email is already verified."),
     emails.FAILED: (messages.ERROR, "We couldn't send the email just now. Please try again later."),
+    emails.DISABLED: (messages.WARNING, "Email delivery is disabled until an email provider is configured."),
 }
 
 
@@ -248,13 +263,23 @@ def dismiss_verification_banner(request):
     return redirect(_next_url(request))
 
 
-password_reset = rate_limited("account_password_reset")(PasswordResetView.as_view(
+_password_reset_view = rate_limited("account_password_reset")(PasswordResetView.as_view(
     form_class=ResetRequestForm,
     template_name="accounts/password_reset.html",
     success_url="/accounts/password/reset/sent/",
 ))
 
-password_reset_sent = PasswordResetDoneView.as_view(template_name="accounts/password_reset_sent.html")
+
+def password_reset(request):
+    if not settings.EMAIL_ENABLED:
+        return render(request, "accounts/password_reset_unavailable.html")
+    return _password_reset_view(request)
+
+
+def password_reset_sent(request):
+    if not settings.EMAIL_ENABLED:
+        return render(request, "accounts/password_reset_unavailable.html")
+    return PasswordResetDoneView.as_view(template_name="accounts/password_reset_sent.html")(request)
 
 # Session key holding "<uid>.<token>" between opening the link and choosing
 # the new password, so the token isn't put back into the page.
@@ -284,6 +309,8 @@ def password_reset_confirm(request):
     This page reads the part after "#" and posts it; a valid token is kept
     in the session while the new password is chosen."""
     template = "accounts/password_reset_confirm.html"
+    if not settings.EMAIL_ENABLED:
+        return render(request, "accounts/password_reset_unavailable.html")
     if request.method == "GET":
         return render(request, template, {"state": "pending"})
     if "token" in request.POST:

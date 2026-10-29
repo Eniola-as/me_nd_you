@@ -1,7 +1,20 @@
 {% extends "accounts/base.html" %}
 {% block title %}Create an account{% endblock %}
 {% block content %}
-  <h1>Create an account</h1>
+  <h1>Create an account <span class="beta-label">Beta</span></h1>
+  <p class="help-text" style="text-align: center">Me &amp; You is in beta: it may sometimes be unavailable or
+    change. The <a href="/privacy/" target="_blank" style="color: var(--accent)">beta privacy notice</a> explains its limits.</p>
+  {% if not email_enabled %}
+    <p role="status">Email delivery is disabled for this beta. You can play without verifying your email, but password recovery is unavailable, so keep your password safe.</p>
+  {% endif %}
+  <section aria-labelledby="signup-safety-heading">
+    <h2 id="signup-safety-heading">Playing safely</h2>
+    <ul>
+      <li>Adults 18+ only.</li>
+      <li>Prompts and dares are optional; either partner can skip or stop at any time.</li>
+      <li>This is a game, not relationship, medical or psychological advice.</li>
+    </ul>
+  </section>
   <form method="post" novalidate>
     {% csrf_token %}
     <label for="{{ form.display_name.id_for_label }}">Your name</label>

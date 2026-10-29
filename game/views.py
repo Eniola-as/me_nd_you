@@ -1,6 +1,11 @@
 import logging
 from functools import wraps
 
+from django.contrib.staticfiles import finders
+from django.http import HttpResponse
+from django.views.decorators.cache import cache_control
+from django.views.decorators.http import require_GET
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -11,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
 
 from couples.services import active_couple
+from play import modes
 from play.services import add_custom_card
 
 from .models import CustomQuestion
@@ -36,7 +42,46 @@ class SpaceCustomQuestionRateThrottle(UserRateThrottle):
     scope = "space_custom_questions"
 
 
+class SpaceModeRateThrottle(UserRateThrottle):
+    scope = "space_mode"
+
+
 NOT_IN_COUPLE = {"detail": "Join a couple first."}
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+@throttle_classes([SpaceModeRateThrottle])
+def space_mode(request):
+    """The couple's shared game mode (play.modes): GET it, or POST
+    {"action": "start"|"request"|"accept"|"decline"|"cancel", "mode", "version"}.
+    A stale version answers 409 with the latest state."""
+    couple = active_couple(request.user)
+    if couple is None:
+        return Response(NOT_IN_COUPLE, status=status.HTTP_403_FORBIDDEN)
+    if request.method == "GET":
+        return Response(modes.snapshot(couple, request.user))
+    action, mode, version = request.data.get("action"), request.data.get("mode"), request.data.get("version")
+    try:
+        if action == "start":
+            state = modes.start(request.user, mode)
+        elif not isinstance(version, int):
+            return Response({"detail": "Send the version you last saw."}, status=status.HTTP_400_BAD_REQUEST)
+        elif action == "request":
+            state = modes.request_switch(request.user, mode, version)
+        elif action in ("accept", "decline"):
+            state = modes.respond(request.user, action == "accept", version)
+        elif action == "cancel":
+            state = modes.cancel(request.user, version)
+        else:
+            return Response({"detail": "Unknown action."}, status=status.HTTP_400_BAD_REQUEST)
+    except modes.Stale as stale:
+        return Response({"detail": "The mode changed.", "state": stale.snapshot}, status=status.HTTP_409_CONFLICT)
+    except modes.Invalid as error:
+        return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+    except modes.Forbidden:
+        return Response(NOT_IN_COUPLE, status=status.HTTP_403_FORBIDDEN)
+    return Response(state)
 
 
 @api_view(["POST"])
@@ -53,6 +98,9 @@ def add_space_custom_question(request):
         logger.warning("Invalid space question; fields: %s", sorted(serializer.errors))
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     data = serializer.validated_data
+    current = modes.current_mode(request.user)
+    if current not in (None, "mixed", data["mode"]):
+        return Response({"mode": ["Add prompts to the mode you're playing."]}, status=status.HTTP_400_BAD_REQUEST)
     kind = ""
     if data["mode"] == TRUTH_OR_DARE:
         kind = data.get("kind") or classify(data["text"])
@@ -90,11 +138,38 @@ def couple_member_required(view):
 
 
 @couple_member_required
+@ensure_csrf_cookie  # The mode API needs the CSRF token for POSTs.
 def mode_select_page(request):
-    return render(request, "game/mode_select.html")
+    return render(request, "game/mode_select.html", modes.page_context(request.user))
 
 
 @couple_member_required
-@ensure_csrf_cookie  # The custom-question API needs the CSRF token for POSTs.
+@ensure_csrf_cookie  # The custom-question and mode APIs need the CSRF token.
 def play_page(request):
-    return render(request, "game/play.html")
+    """The couple's current mode. With none set yet, the mode opened starts
+    for both; another mode's link shows the current one (switching is a
+    request the partner accepts, from the mode menu)."""
+    mode = request.GET.get("mode")
+    if mode not in modes.MODE_GAMES:
+        return redirect("/modes/")
+    current = modes.current_mode(request.user)
+    if current is None:
+        current = modes.start(request.user, mode)["mode"]
+    if current != mode:
+        return redirect(f"/play/?mode={current}")
+    return render(request, "game/play.html", {**modes.page_context(request.user), "game": modes.MODE_GAMES[mode]})
+
+
+@require_GET
+@cache_control(no_cache=True)
+def service_worker(request):
+    """static/service-worker.js, served from the root so its scope is the
+    whole site. Browsers re-check it on every visit (no-cache)."""
+    with open(finders.find("service-worker.js"), encoding="utf-8") as source:
+        return HttpResponse(source.read(), content_type="application/javascript")
+
+
+@require_GET
+def offline_page(request):
+    """What the service worker shows when a page can't load. Never personal."""
+    return render(request, "game/offline.html")

@@ -21,6 +21,8 @@
   function createChatClient({
     url,
     onChange = () => {},
+    // The couple's game-mode notices (play.modes), for the page to show.
+    onMode = () => {},
     newRequestId = defaultRequestId,
     // Where this page is, for the partner's presence line: "space",
     // "menu" or "play:<mode>". Sent on every (re)connection.
@@ -126,6 +128,8 @@
         const gone = messages.find((m) => m.id === data.id);
         messages = messages.filter((m) => m.id !== data.id);
         if (gone && isUnread(gone) && unread > 0) unread--;
+      } else if (data.type === "mode") {
+        onMode(data);
       } else if (data.type === "read" && Number.isInteger(data.upTo)) {
         if (lastRead === null || data.upTo > lastRead) lastRead = data.upTo;
         unread = messages.filter(isUnread).length;

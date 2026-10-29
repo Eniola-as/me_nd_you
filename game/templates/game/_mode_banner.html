@@ -1,0 +1,51 @@
+{% comment %}
+  The couple's shared game mode (play.modes), on every member page: what's
+  playing and any switch request. static/js/mode-banner.js keeps it live
+  (notices arrive over the chat connection) and sends Switch / Keep playing /
+  Cancel. Shown only once a mode has started.
+{% endcomment %}
+{% load static %}
+{% if mode_state.mode %}
+  <style>
+    .mode-banner {
+      width: 100%;
+      max-width: 400px;
+      margin: 0 auto 14px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #ddd;
+      font-size: 14px;
+      text-align: center;
+    }
+    .mode-banner p {
+      margin: 4px 0;
+    }
+    .mode-banner .mode-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .mode-banner .mode-actions button {
+      flex: none;
+      width: auto;
+      margin: 0;
+      padding: 8px 14px;
+      font-size: 14px;
+    }
+    .mode-banner .mode-notice:empty,
+    .mode-banner .mode-actions:empty {
+      display: none;
+    }
+  </style>
+  <div id="mode-banner" class="mode-banner" data-partner="{{ mode_partner }}">
+    {{ mode_state|json_script:"mode-state" }}
+    <p class="mode-now">Now playing: <strong>{{ mode_state.label }}</strong></p>
+    <p class="mode-pending" role="status">{% if mode_state.pending %}{% if mode_state.pending.by_you %}Waiting for {{ mode_partner }} to accept a switch to {{ mode_state.pending.label }}.{% else %}{{ mode_partner }} wants to switch to {{ mode_state.pending.label }}.{% endif %}{% endif %}</p>
+    <div class="mode-actions">{% if mode_state.pending %}{% if mode_state.pending.by_you %}<button type="button" data-mode-action="cancel" class="secondary">Cancel</button>{% else %}<button type="button" data-mode-action="accept">Switch</button><button type="button" data-mode-action="decline" class="secondary">Keep playing</button>{% endif %}{% endif %}</div>
+    <p class="mode-notice" role="status" aria-live="polite"></p>
+  </div>
+{% endif %}
+<script src="{% static 'js/mode-banner.js' %}"></script>

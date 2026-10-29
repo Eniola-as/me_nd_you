@@ -2,15 +2,9 @@ services:
   - type: web
     name: me_nd_you
     runtime: python
-    # Verify in Render: WebSockets need an always-on instance (free instances
-    # spin down when idle, dropping every socket), and preDeployCommand is
-    # only available on some instance types.
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    # Migrations run once per deploy, after the build and before the new
-    # version starts serving. Back up the database first (docs/DEPLOYMENT.md).
-    # Then deleted accounts past their 7 days and couple spaces closed over 30
-    # days ago are permanently deleted (the app also does this hourly).
-    preDeployCommand: python manage.py migrate --noinput && python manage.py purge_deleted_accounts
+    # Free web services do not support pre-deploy commands, so migrations run
+    # in the build step. Back up the database first (docs/DEPLOYMENT.md).
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput
     # One Daphne process serves HTTP and WebSockets. Rooms use the in-memory
     # channel layer, so all sockets must be in this one process: don't add
     # processes or instances until Redis is set up (docs/DEPLOYMENT.md).

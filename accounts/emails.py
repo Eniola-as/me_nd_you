@@ -26,11 +26,18 @@ RESEND_COOLDOWN = 120
 SIGNUP_ALERT_COOLDOWN = 24 * 60 * 60
 
 SENT, COOLDOWN, ALREADY_VERIFIED, FAILED = "sent", "cooldown", "already_verified", "failed"
+DISABLED = "disabled"
+
+
+class EmailDeliveryDisabled(RuntimeError):
+    """Raised if code tries to send an account email without a provider."""
 
 
 def send_account_email(user, template, context):
     """Render accounts/email/<template>{_subject.txt,.txt,.html} and send
     them to the user, from DEFAULT_FROM_EMAIL."""
+    if not settings.EMAIL_ENABLED:
+        raise EmailDeliveryDisabled("Account email delivery is disabled until a provider is configured.")
     context = {"user": user, **context}
     subject = render_to_string(f"accounts/email/{template}_subject.txt", context).strip()
     body = render_to_string(f"accounts/email/{template}.txt", context)
@@ -42,6 +49,8 @@ def send_account_email(user, template, context):
 def send_in_background(user, template, context):
     """Send from a background thread, so the response doesn't wait for the
     provider and takes the same time whether or not an email goes out."""
+    if not settings.EMAIL_ENABLED:
+        return
 
     def run():
         try:
@@ -78,6 +87,8 @@ def mark_verified(user):
 
 
 def send_verification_email(request, user):
+    if not settings.EMAIL_ENABLED:
+        return DISABLED
     if user.email_verified_at:
         return ALREADY_VERIFIED
     cooldown_key = f"accounts:verification-sent:{user.pk}"
@@ -96,7 +107,11 @@ def send_verification_email(request, user):
 def send_signup_alert(request, user):
     """Tell the owner that someone tried to sign up with their email. Sent
     in the background, and never to deactivated accounts."""
-    if not user.is_active or not cache.add(f"accounts:signup-alert:{user.pk}", True, SIGNUP_ALERT_COOLDOWN):
+    if (
+        not settings.EMAIL_ENABLED
+        or not user.is_active
+        or not cache.add(f"accounts:signup-alert:{user.pk}", True, SIGNUP_ALERT_COOLDOWN)
+    ):
         return
     link = request.build_absolute_uri("/accounts/password/reset/")
     send_in_background(user, "signup_attempt", {"link": link})

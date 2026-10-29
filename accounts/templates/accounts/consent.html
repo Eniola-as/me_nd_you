@@ -3,11 +3,11 @@
 {% block content %}
   <h1>Before you continue</h1>
   {% if is_update %}
-    <p>We've updated our <a href="/terms/" target="_blank">Terms of Use</a> and
-      <a href="/privacy/" target="_blank">Privacy Policy</a>. Please read them and confirm below to keep using Me &amp; You.</p>
+    <p>We've updated our <a href="/privacy/" target="_blank">beta privacy notice</a>. Please read it and
+      confirm below to keep using Me &amp; You.</p>
   {% else %}
-    <p>Please read our <a href="/terms/" target="_blank">Terms of Use</a> and
-      <a href="/privacy/" target="_blank">Privacy Policy</a>, then confirm below to keep using Me &amp; You.</p>
+    <p>Please read our <a href="/privacy/" target="_blank">beta privacy notice</a>, then confirm below to
+      keep using Me &amp; You.</p>
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}

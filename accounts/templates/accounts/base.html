@@ -208,6 +208,17 @@
         padding: 10px 14px;
         text-align: center;
       }
+      .beta-label {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border: 1px solid #f5c542;
+        border-radius: 999px;
+        color: #f5c542;
+        font-size: 12px;
+        font-weight: 600;
+        vertical-align: middle;
+      }
       .draft-note {
         color: #f5c542;
       }
@@ -234,5 +245,6 @@
     {% include "accounts/_footer.html" %}
     {# Outside the card: its backdrop-filter would pin "fixed" elements to it. #}
     {% block after_card %}{% endblock %}
+    {% include "accounts/_pwa.html" %}
   </body>
 </html>
