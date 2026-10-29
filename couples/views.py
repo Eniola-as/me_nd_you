@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 from accounts.views import rate_limited
 
 from . import services
+from .notices import closure_notice_for, send_closure_notices
 
 # The token from an invitation link waits here until the person accepts. It
 # never goes back into a URL or a page.
@@ -52,6 +53,7 @@ def space(request):
         # Shown once, right after it was created.
         "new_invite_url": request.session.pop(NEW_INVITE_URL, None),
         "has_pending_invite": PENDING_INVITE in request.session,
+        "closure_notice": closure_notice_for(user),
     })
 
 
@@ -77,7 +79,8 @@ def _handle_action(request):
             if request.POST.get("confirm") != "yes":
                 messages.error(request, "Tick the box to confirm that you want to close this space.")
             else:
-                services.close_couple(user)
+                couple = services.close_couple(user)
+                send_closure_notices(request, couple)
                 messages.success(request, "You left. The couple space is closed for both of you.")
     except services.InvitationError as error:
         messages.error(request, str(error))

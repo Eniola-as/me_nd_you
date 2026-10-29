@@ -34,5 +34,10 @@
     {% if export_error %}<p class="error-text" role="alert">{{ export_error }}</p>{% endif %}
     <button type="submit" class="secondary">Download my data</button>
   </form>
+
+  <details id="delete"{% if delete_error %} open{% endif %}>
+    <summary class="links">Delete my account</summary>
+    {% include "accounts/_delete_account.html" %}
+  </details>
   <p class="links"><a href="/space/">Back to your couple space</a></p>
 {% endblock %}

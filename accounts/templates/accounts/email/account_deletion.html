@@ -1,0 +1,9 @@
+{% extends "accounts/email/base.html" %}
+{% block content %}
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">Hi{% if user.display_name %} {{ user.display_name }}{% endif %},</p>
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">You asked us to delete your Me &amp; You account. It's closed now, and you've been signed out on every device.{% if closed_couple %} Your couple space has closed for both of you.{% endif %}</p>
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">After {{ date|date:"j F Y" }}, it will be permanently deleted, usually within a day, and always within 30 days.</p>
+  <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.5">Changed your mind? Just sign in before {{ date|date:"j F Y" }} and your account will be restored.</p>
+  <p style="margin: 0 0 20px"><a href="{{ link }}" style="display: inline-block; padding: 12px 22px; background: #ff4c61; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: bold">Sign in to keep my account</a></p>
+  {% if contact_email %}<p style="margin: 0; font-size: 15px; line-height: 1.5">Questions? Contact us at {{ contact_email }}.</p>{% endif %}
+{% endblock %}

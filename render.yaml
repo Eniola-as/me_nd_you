@@ -8,7 +8,9 @@ services:
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     # Migrations run once per deploy, after the build and before the new
     # version starts serving. Back up the database first (docs/DEPLOYMENT.md).
-    preDeployCommand: python manage.py migrate --noinput
+    # Then deleted accounts past their 7 days and couple spaces closed over 30
+    # days ago are permanently deleted (the app also does this hourly).
+    preDeployCommand: python manage.py migrate --noinput && python manage.py purge_deleted_accounts
     # One Daphne process serves HTTP and WebSockets. Rooms use the in-memory
     # channel layer, so all sockets must be in this one process: don't add
     # processes or instances until Redis is set up (docs/DEPLOYMENT.md).

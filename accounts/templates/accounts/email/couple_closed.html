@@ -1,0 +1,9 @@
+{% extends "accounts/email/base.html" %}
+{% block content %}
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">Hi{% if user.display_name %} {{ user.display_name }}{% endif %},</p>
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">Your couple space on Me &amp; You has closed. It's no longer visible in the app.</p>
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">If this was a mistake, you and your partner can contact us before {{ date|date:"j F Y" }} to ask for it to be restored.</p>
+  <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.5">You can download your data from it until {{ date|date:"j F Y" }}. After that, everything in the space will be permanently deleted.</p>
+  <p style="margin: 0 0 20px"><a href="{{ link }}" style="display: inline-block; padding: 12px 22px; background: #ff4c61; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: bold">Download my data</a></p>
+  {% if contact_email %}<p style="margin: 0; font-size: 15px; line-height: 1.5">Questions? Contact us at {{ contact_email }}.</p>{% endif %}
+{% endblock %}

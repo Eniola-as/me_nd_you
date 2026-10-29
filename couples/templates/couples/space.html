@@ -10,6 +10,23 @@
     <p class="messages"><a href="/accounts/profile/">Choose a name</a> so your partner sees it instead of "Your partner".</p>
   {% endif %}
 
+  {% if closure_notice.partner_deleted_account %}
+    <p class="banner" role="status">
+      <span>Your partner deleted their Me &amp; You account, so your couple space has closed.
+        Their messages, reactions and the questions they wrote have been permanently deleted.
+        Your own messages and the rest of the space stay until {{ closure_notice.date|date:"j F Y" }}.
+        You can download your data until then.
+        <a href="/accounts/profile/#download" style="color: var(--accent)">Download my data</a></span>
+    </p>
+  {% elif closure_notice %}
+    <p class="banner" role="status">
+      <span>Your couple space has closed. If this was a mistake, you and your partner can contact us
+        before {{ closure_notice.date|date:"j F Y" }} to ask for it to be restored. You can download your
+        data from it until {{ closure_notice.date|date:"j F Y" }}.
+        <a href="/accounts/profile/#download" style="color: var(--accent)">Download my data</a></span>
+    </p>
+  {% endif %}
+
   {% if has_pending_invite and not membership %}
     <h2>You've been invited</h2>
     <p>Join your partner's private space?</p>
@@ -55,8 +72,10 @@
       <summary class="links">Leave this couple space</summary>
       <p>
         Leaving closes this space for both of you: both of you lose access to it,
-        its games and its custom questions, straight away and on every device.
-        Nothing is deleted, but neither of you can reopen it yourselves.
+        its games, its custom questions and its chat, straight away and on every device.
+        Neither of you can reopen it yourselves. If it was a mistake, contact us:
+        an admin can only restore it within 30 days. After that, everything in it is
+        permanently deleted. Until then, each of you can download your data from your profile page.
       </p>
       <form method="post">
         {% csrf_token %}

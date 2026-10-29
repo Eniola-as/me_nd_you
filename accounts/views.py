@@ -1,4 +1,5 @@
 import json
+import logging
 from functools import wraps
 
 from django.conf import settings
@@ -21,7 +22,9 @@ from rest_framework.throttling import UserRateThrottle
 
 from game.views import ClientRateThrottle
 
-from . import emails
+from couples.notices import send_closure_notices
+
+from . import deletion, emails
 from .consents import missing_consents, record_consents
 from .export import export_for
 from .forms import (
@@ -33,6 +36,8 @@ from .forms import (
     ticked_consents,
 )
 from .sessions import sign_out_everywhere
+
+logger = logging.getLogger(__name__)
 
 # Session flag: the verification banner was dismissed. Signing in starts a
 # new session, so it comes back on the next sign-in.
@@ -106,6 +111,37 @@ def _render_profile(request, form=None, **extra):
     })
 
 
+@login_required
+@rate_limited("account_profile")
+@require_POST
+def delete_account(request):
+    """Close the account now; it's purged after 7 days unless its owner
+    signs in again before then (accounts.deletion)."""
+    if request.POST.get("confirm") != "yes":
+        return _render_profile(request, delete_error="Tick the box to confirm.")
+    if not request.user.check_password(request.POST.get("password", "")):
+        return _render_profile(request, delete_error="That password isn't right.")
+    user = request.user
+    couple = deletion.request_deletion(user)
+    send_closure_notices(request, couple)
+    try:
+        emails.send_account_email(user, "account_deletion", {
+            "date": deletion.deletion_date(user),
+            "link": request.build_absolute_uri("/accounts/login/"),
+            "contact_email": settings.PRIVACY_CONTACT_EMAIL,
+            "closed_couple": couple is not None,
+        })
+    except Exception:
+        logger.exception("Could not send an account deletion email.")
+    logout(request)
+    return redirect("/accounts/deleted/")
+
+
+@require_http_methods(["GET"])
+def account_deleted(request):
+    return render(request, "accounts/deleted.html")
+
+
 class DataExportThrottle(UserRateThrottle):
     """Per account, not per address (rate in settings)."""
 
@@ -162,6 +198,12 @@ class EmailLoginView(LoginView):
     template_name = "accounts/login.html"
     authentication_form = EmailAuthenticationForm
     redirect_authenticated_user = True
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if form.restored:
+            messages.success(self.request, "Welcome back. Your account deletion is cancelled.")
+        return response
 
 
 sign_in = rate_limited("account_login")(EmailLoginView.as_view())

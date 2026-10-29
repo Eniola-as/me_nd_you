@@ -15,6 +15,10 @@
     <input type="hidden" name="next" value="{{ next }}" />
     <button type="submit">Continue</button>
   </form>
+  <details>
+    <summary class="links">Don't agree? You can delete your account instead.</summary>
+    {% include "accounts/_delete_account.html" %}
+  </details>
   <form method="post" action="/accounts/logout/">
     {% csrf_token %}
     <button type="submit" class="secondary">Not now: sign out</button>

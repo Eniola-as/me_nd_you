@@ -21,11 +21,23 @@ class Couple(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    # Set when a member leaves: the space closes for both. Nothing is deleted;
-    # an admin can reopen it (couples.services.reopen_couple).
+    # Set when a member leaves: the space closes for both. An admin can reopen
+    # it (couples.services.reopen_couple) until it's permanently deleted,
+    # CLOSED_SPACE_RETENTION after closing.
     closed_at = models.DateTimeField(null=True, blank=True)
     closed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    # Why it closed, kept after the closer's account is deleted (closed_by is
+    # cleared then): it decides which closure notice the partner gets.
+    CLOSED_BY_LEAVING = "left"
+    CLOSED_BY_ACCOUNT_DELETION = "account_deleted"
+    # db_default too: code that predates this column (an older migration
+    # state, or the old version still serving during a deploy) can still
+    # create couples.
+    closed_reason = models.CharField(
+        max_length=20, blank=True, default="", db_default="",
+        choices=[(CLOSED_BY_LEAVING, "A member left"), (CLOSED_BY_ACCOUNT_DELETION, "A member deleted their account")],
     )
 
     def __str__(self):

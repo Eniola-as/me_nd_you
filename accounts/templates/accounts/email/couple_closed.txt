@@ -1,0 +1,12 @@
+{% autoescape off %}Hi{% if user.display_name %} {{ user.display_name }}{% endif %},
+
+Your couple space on Me & You has closed. It's no longer visible in the app.
+
+If this was a mistake, you and your partner can contact us before {{ date|date:"j F Y" }} to ask for it to be restored.
+
+You can download your data from it until {{ date|date:"j F Y" }}. After that, everything in the space will be permanently deleted.
+
+To download your data, go to your profile page: {{ link }}
+{% if contact_email %}
+Questions? Contact us at {{ contact_email }}.
+{% endif %}{% endautoescape %}

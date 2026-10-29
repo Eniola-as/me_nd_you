@@ -1,0 +1,10 @@
+{% autoescape off %}Hi{% if user.display_name %} {{ user.display_name }}{% endif %},
+
+You asked us to delete your Me & You account. It's closed now, and you've been signed out on every device.{% if closed_couple %} Your couple space has closed for both of you.{% endif %}
+
+After {{ date|date:"j F Y" }}, it will be permanently deleted, usually within a day, and always within 30 days.
+
+Changed your mind? Just sign in before {{ date|date:"j F Y" }} and your account will be restored: {{ link }}
+{% if contact_email %}
+Questions? Contact us at {{ contact_email }}.
+{% endif %}{% endautoescape %}

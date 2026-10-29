@@ -1,0 +1,11 @@
+{% extends "accounts/base.html" %}
+{% block title %}Account closed{% endblock %}
+{% block content %}
+  <h1>Your account is closed</h1>
+  <p>
+    Your account is closed immediately. After a 7-day cancellation period, it is permanently deleted,
+    usually within a day, and always within 30 days. We've emailed you the date.
+  </p>
+  <p>Changed your mind? Sign in again within 7 days and your account will be restored.</p>
+  <a class="button secondary" href="/accounts/login/">Sign in</a>
+{% endblock %}

@@ -43,6 +43,10 @@ class User(AbstractUser):
     # Set the first time a verification link is used. Verification is a
     # reminder only: unverified users can use everything.
     email_verified_at = models.DateTimeField(null=True, blank=True)
+    # Set when the user deletes their account (it's also made inactive).
+    # Signing in within 7 days cancels; after that it's purged
+    # (accounts.deletion).
+    deletion_requested_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

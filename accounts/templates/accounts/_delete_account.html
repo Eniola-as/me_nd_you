@@ -1,0 +1,24 @@
+{% comment %}
+  Deleting the account: on the profile page, and on the consent page for
+  anyone who doesn't agree. The first sentences are the privacy policy's.
+{% endcomment %}
+<p class="help-text">
+  Your account is closed immediately. After a 7-day cancellation period, it is permanently deleted,
+  usually within a day, and always within 30 days. To cancel, just sign in again within the 7 days.
+</p>
+<p class="help-text">
+  Deleting your account also closes your couple space for both of you. Everything you wrote (your chat
+  messages and reactions, and the custom questions we know are yours) is deleted with it. If you want a
+  copy, download your data first.
+</p>
+<form method="post" action="/accounts/profile/delete/" novalidate>
+  {% csrf_token %}
+  <label for="delete-password">Your password</label>
+  <input type="password" name="password" id="delete-password" autocomplete="current-password" required />
+  <label class="consent-box" style="display: flex; gap: 10px">
+    <input type="checkbox" name="confirm" value="yes" required style="width: auto" />
+    <span>I understand that my account and everything I wrote will be deleted</span>
+  </label>
+  {% if delete_error %}<p class="error-text" role="alert">{{ delete_error }}</p>{% endif %}
+  <button type="submit" class="secondary">Delete my account</button>
+</form>

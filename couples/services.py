@@ -162,19 +162,21 @@ def redeem_invitation(user, raw_token):
     return couple
 
 
-def close_couple(user):
+def close_couple(user, reason=Couple.CLOSED_BY_LEAVING):
     """Leave the couple: it closes for both members. Both memberships end,
     pending invitations are revoked and game rooms close, in one
     transaction; open game connections are told only after it commits.
-    Nothing is deleted."""
+    Nothing is deleted now: the space, with everything in it, is deleted
+    30 days later (accounts.deletion.purge_due), and until then an admin
+    can reopen it. The caller sends the closure notices."""
     now = timezone.now()
     with transaction.atomic():
         membership = active_membership(user)
         if membership is None:
             raise NotInCouple()
         couple = Couple.objects.select_for_update().get(pk=membership.couple_id)
-        couple.closed_at, couple.closed_by = now, user
-        couple.save(update_fields=["closed_at", "closed_by"])
+        couple.closed_at, couple.closed_by, couple.closed_reason = now, user, reason
+        couple.save(update_fields=["closed_at", "closed_by", "closed_reason"])
         Membership.objects.active().filter(couple=couple).update(left_at=now)
         _pending(couple).update(revoked_at=now)
         rooms = GameRoom.objects.filter(couple=couple, status=GameRoom.ACTIVE)
@@ -210,8 +212,8 @@ def reopen_couple(couple):
             membership.left_at = None
             membership.save(update_fields=["left_at"])
             restored.append(membership.user)
-        couple.closed_at, couple.closed_by = None, None
-        couple.save(update_fields=["closed_at", "closed_by"])
+        couple.closed_at, couple.closed_by, couple.closed_reason = None, None, ""
+        couple.save(update_fields=["closed_at", "closed_by", "closed_reason"])
     return restored
 
 

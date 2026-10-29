@@ -139,6 +139,33 @@ class EmailAuthenticationForm(AuthenticationForm):
     def clean_username(self):
         return User.objects.normalize_email(self.cleaned_data.get("username"))
 
+    # True when signing in cancelled a pending account deletion.
+    restored = False
+
+    def clean(self):
+        try:
+            return super().clean()
+        except forms.ValidationError:
+            # Django refuses inactive accounts. One deleted by its owner can
+            # still sign in within 7 days, and that cancels the deletion.
+            user = self._restorable_user()
+            if user is None:
+                raise
+            from .deletion import cancel_deletion
+
+            cancel_deletion(user)
+            self.user_cache, self.restored = user, True
+            return self.cleaned_data
+
+    def _restorable_user(self):
+        from .deletion import is_restorable
+
+        email, password = self.cleaned_data.get("username"), self.cleaned_data.get("password")
+        user = User.objects.filter(email__iexact=email).first() if email and password else None
+        if user is None or not is_restorable(user) or not user.check_password(password):
+            return None
+        return user
+
 
 class ResetRequestForm(PasswordResetForm):
     """Django's reset form (it only emails active users with a usable

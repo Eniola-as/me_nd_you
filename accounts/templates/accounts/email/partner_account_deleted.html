@@ -1,0 +1,8 @@
+{% extends "accounts/email/base.html" %}
+{% block content %}
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">Hi{% if user.display_name %} {{ user.display_name }}{% endif %},</p>
+  <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5">Your partner deleted their Me &amp; You account, and it has now been permanently deleted, with their messages, reactions and the questions they wrote.</p>
+  <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.5">Your own messages and the rest of your closed couple space stay until {{ date|date:"j F Y" }}. You can download your data until then. After that, everything in the space will be permanently deleted.</p>
+  <p style="margin: 0 0 20px"><a href="{{ link }}" style="display: inline-block; padding: 12px 22px; background: #ff4c61; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: bold">Download my data</a></p>
+  {% if contact_email %}<p style="margin: 0; font-size: 15px; line-height: 1.5">Questions? Contact us at {{ contact_email }}.</p>{% endif %}
+{% endblock %}

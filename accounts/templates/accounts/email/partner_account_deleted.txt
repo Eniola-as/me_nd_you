@@ -1,0 +1,10 @@
+{% autoescape off %}Hi{% if user.display_name %} {{ user.display_name }}{% endif %},
+
+Your partner deleted their Me & You account, and it has now been permanently deleted, with their messages, reactions and the questions they wrote.
+
+Your own messages and the rest of your closed couple space stay until {{ date|date:"j F Y" }}. You can download your data until then. After that, everything in the space will be permanently deleted.
+
+To download your data, go to your profile page: {{ link }}
+{% if contact_email %}
+Questions? Contact us at {{ contact_email }}.
+{% endif %}{% endautoescape %}

@@ -8,7 +8,8 @@ from .consents import SESSION_KEY, missing_consents
 
 # Reachable before consenting: the consent page itself, reading the policy,
 # signing out, and static files. The admin is staff tooling, not the app.
-OPEN_PREFIXES = ("/accounts/consent/", "/accounts/logout/", "/privacy/", "/terms/")
+# Deleting the account stays possible for anyone who doesn't agree.
+OPEN_PREFIXES = ("/accounts/consent/", "/accounts/logout/", "/accounts/profile/delete/", "/privacy/", "/terms/")
 
 
 class ConsentRequiredMiddleware:
@@ -42,3 +43,17 @@ class ConsentRequiredMiddleware:
             return True
         request.session[SESSION_KEY] = settings.POLICY_VERSION
         return False
+
+
+class HourlyPurgeMiddleware:
+    """Runs the purge of deleted accounts and old closed spaces at most once
+    an hour, on the first request after that (accounts.deletion)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from . import deletion
+
+        deletion.maybe_purge()
+        return self.get_response(request)

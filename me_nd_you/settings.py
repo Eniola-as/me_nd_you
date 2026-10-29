@@ -35,6 +35,9 @@ if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
 CSRF_TRUSTED_ORIGINS = [
     f"https://{host}" for host in ALLOWED_HOSTS if host not in ("localhost", "127.0.0.1")
 ]
+# The site's own address, for links in emails sent outside a request (the
+# purge). Production: https:// + the first allowed host.
+SITE_URL = CSRF_TRUSTED_ORIGINS[0] if CSRF_TRUSTED_ORIGINS else "http://127.0.0.1:8000"
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
@@ -78,6 +81,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "accounts.middleware.ConsentRequiredMiddleware",
+    "accounts.middleware.HourlyPurgeMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "me_nd_you.settings.ServiceWorkerMiddleware",
 ]
