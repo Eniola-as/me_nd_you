@@ -6,7 +6,7 @@
 // The API, sockets, account actions and the admin are left to the browser.
 //
 // Bump the version whenever the cached files change, so old caches are dropped.
-const CACHE_NAME = "me-and-you-v4";
+const CACHE_NAME = "me-and-you-v5";
 const OFFLINE_PAGE = "/offline/";
 const PRECACHE = [
   OFFLINE_PAGE,

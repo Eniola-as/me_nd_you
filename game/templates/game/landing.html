@@ -156,45 +156,18 @@
         align-items: center;
         width: 100%;
         max-width: 400px;
-        gap: 0;
         box-sizing: border-box;
         padding: 0 8px;
       }
 
-      #installBtn {
-        display: none;
+      .pwa-actions .install-guide {
         margin-top: 0;
-        width: 100%;
-        padding: 14px;
+      }
+
+      #installBtn {
         background: linear-gradient(90deg, #ff4c61 60%, #ff7182 100%);
-        border: none;
-        color: white;
-        font-size: 16px;
-        border-radius: 12px;
-        cursor: pointer;
-        transition: background 0.3s ease, box-shadow 0.2s;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         font-weight: 600;
         letter-spacing: 0.5px;
-        box-sizing: border-box;
-      }
-
-      #installBtn.show {
-        display: block;
-      }
-
-      #install-tip,
-      #ios-pwa-tip {
-        display: none;
-        margin-top: 12px;
-        background: #222;
-        color: #fff;
-        padding: 10px 14px;
-        border-radius: 10px;
-        font-size: 15px;
-        text-align: center;
-        width: 100%;
-        box-sizing: border-box;
       }
 
       @media (max-width: 500px) {
@@ -220,8 +193,7 @@
         }
 
         input,
-        button,
-        #installBtn {
+        button {
           font-size: 15px;
         }
       }
@@ -265,71 +237,12 @@
         <a class="button secondary" href="/accounts/register/">Create account</a>
       </div>
       <div class="pwa-actions">
-        <button id="installBtn" type="button">
-          <span style="font-size: 1.3em; vertical-align: middle"
-            >&#x1F4E6;</span
-          >
-          Install App
-        </button>
-        <div id="install-tip">
-          Tip: On desktop, click "Install App" or use your browser's menu to
-          install.<br />
-          On Android, tap "Install App" when prompted.
-        </div>
-        <div id="ios-pwa-tip">
-          To install this app on your iPhone/iPad, tap
-          <span style="font-size: 1.2em">&#x1F5D2;</span> or
-          <span style="font-size: 1.2em">&#x2191;</span> and then "Add to Home
-          Screen".
-        </div>
+        {% include "accounts/_install_guide.html" %}
       </div>
     </div>
 
     {% include "accounts/_footer.html" %}
 
-    <script>
-      // PWA Installation
-      let deferredPrompt;
-
-      function isIos() {
-        return /iphone|ipad|ipod/i.test(navigator.userAgent);
-      }
-      function isInStandaloneMode() {
-        return "standalone" in window.navigator && window.navigator.standalone;
-      }
-
-      window.addEventListener("DOMContentLoaded", () => {
-        // Show iOS tip if on iOS and not installed
-        if (isIos() && !isInStandaloneMode()) {
-          document.getElementById("ios-pwa-tip").style.display = "block";
-          document.getElementById("install-tip").style.display = "none";
-          document.getElementById("installBtn").style.display = "none";
-        }
-      });
-
-      window.addEventListener("beforeinstallprompt", (e) => {
-        if (isIos()) return; // Don't show install prompt/button on iOS
-        e.preventDefault();
-        deferredPrompt = e;
-        document.getElementById("installBtn").classList.add("show");
-        document.getElementById("install-tip").style.display = "block";
-        document.getElementById("ios-pwa-tip").style.display = "none";
-      });
-
-      document.getElementById("installBtn").addEventListener("click", () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choice) => {
-            if (choice.outcome === "accepted") {
-              console.log("App installed");
-            }
-            deferredPrompt = null;
-            document.getElementById("installBtn").classList.remove("show");
-            document.getElementById("install-tip").style.display = "none";
-          });
-        }
-      });
-    </script>
     {% include "accounts/_pwa.html" %}
   </body>
 </html>

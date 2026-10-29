@@ -1,0 +1,83 @@
+{% load static %}
+{% comment %}
+  How to add Me & You to the home screen: on the landing, sign-in and
+  sign-up pages. Hidden once the app is opened from the home screen (CSS
+  display-mode, and static/js/install-guide.js for iOS Safari). Where the
+  browser offers its own install prompt, the "Install App" button shows it.
+{% endcomment %}
+<style>
+  .install-guide {
+    width: 100%;
+    margin: 20px 0;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    text-align: left;
+  }
+  .install-guide h2 {
+    margin: 0 0 6px;
+    color: #fff;
+    font-size: 17px;
+  }
+  .install-guide p {
+    margin: 0 0 10px;
+    color: #bbb;
+    font-size: 13px;
+  }
+  .install-guide ol {
+    margin: 0;
+    padding-left: 22px;
+  }
+  .install-guide li {
+    margin-top: 8px;
+    color: #ddd;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .install-guide strong {
+    color: #fff;
+  }
+  .install-guide .share-icon {
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    margin: 0 2px;
+    vertical-align: -0.25em;
+    color: #ff4c61;
+  }
+  .install-guide .nowrap {
+    white-space: nowrap;
+  }
+  .install-guide #installBtn {
+    display: none;
+    margin-top: 14px;
+  }
+  .install-guide #installBtn.show {
+    display: block;
+  }
+  /* Once installed (opened from the home screen) the steps are not needed. */
+  @media (display-mode: standalone) {
+    .install-guide {
+      display: none;
+    }
+  }
+  .install-guide.is-installed {
+    display: none;
+  }
+</style>
+<aside class="install-guide" aria-labelledby="install-guide-title">
+  <h2 id="install-guide-title">Add Me &amp; You to your home screen</h2>
+  <p>Optional: install it for quicker access, like an app.</p>
+  <ol>
+    <li><strong>iPhone or iPad:</strong> In Safari, tap the Share
+      <span class="nowrap">button <svg class="share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 14.5V3M8 7l4-4 4 4" /><path d="M8.5 10H6.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2" /></svg>,</span>
+      then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+    <li><strong>Android:</strong> in Chrome, tap <strong>⋮</strong> (the three-dot menu), choose
+      <strong>Install app</strong> or <strong>Add to Home screen</strong>, then confirm.</li>
+    <li><strong>Computer:</strong> use your browser's <strong>Install</strong> icon or menu option, if available.</li>
+  </ol>
+  <button id="installBtn" type="button">Install App</button>
+</aside>
+<script src="{% static 'js/install-guide.js' %}" defer></script>

@@ -73,7 +73,13 @@
         transition: transform 0.2s ease;
       }
 
-      .mode-card:hover,
+      /* Hover only with a mouse: on touch screens it sticks after a tap. */
+      @media (hover: hover) {
+        .mode-card:hover {
+          transform: translateY(-4px);
+          background: rgba(255, 76, 97, 0.15);
+        }
+      }
       .mode-card:focus-visible {
         transform: translateY(-4px);
         background: rgba(255, 76, 97, 0.15);

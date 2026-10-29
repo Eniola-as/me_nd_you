@@ -143,6 +143,8 @@
     color: #fff;
   }
   #chat-panel #chat-close {
+    min-width: 44px;
+    min-height: 44px;
     border: none;
     background: none;
     font-size: 18px;
@@ -201,7 +203,9 @@
     color: #999;
   }
   #chat-messages .meta button {
-    padding: 0 0 0 6px;
+    /* Small text, but a tap target of at least 24px (WCAG 2.5.8). */
+    min-height: 24px;
+    padding: 4px 0 4px 8px;
     border: none;
     background: none;
     color: #999;
@@ -231,9 +235,9 @@
   #chat-input {
     flex: 1;
     min-width: 0;
-    min-height: 40px;
+    min-height: 44px;
     max-height: 120px;
-    padding: 9px 12px;
+    padding: 11px 12px;
     border: none;
     border-radius: 12px;
     background: #262626;
@@ -279,14 +283,79 @@
     border-color: #ff4c61;
     background: rgba(255, 76, 97, 0.25);
   }
+  /* "+": a grid of emoji in groups, and a box for any other one. */
+  .reaction-picker.is-open {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 6px;
+    box-sizing: border-box;
+    width: 252px;
+    max-width: 100%;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: #1e1e1e;
+  }
+  .emoji-tabs {
+    display: flex;
+    flex: none;
+    gap: 4px;
+    min-width: 0;
+  }
+  .reaction-picker .emoji-tabs button,
+  #chat-panel .reaction-picker .emoji-tabs button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 4px 0;
+    font-size: 16px;
+  }
+  #chat-messages li:has(.reaction-picker.is-open) {
+    max-width: 100%;
+  }
+  .reaction-picker.is-open > * {
+    min-width: 0;
+  }
+  .reaction-picker .emoji-tabs button[aria-selected="true"],
+  #chat-panel .reaction-picker .emoji-tabs button[aria-selected="true"] {
+    border-color: #ff4c61;
+  }
+  .emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: 34px;
+    flex: none;
+    gap: 4px;
+  }
+  .reaction-picker .emoji-grid button,
+  #chat-panel .reaction-picker .emoji-grid button {
+    width: 100%;
+    height: 34px;
+    padding: 0;
+  }
+  .emoji-type {
+    display: flex;
+    gap: 6px;
+  }
   .reaction-picker input {
-    width: 4.5em;
-    padding: 4px 6px;
+    flex: 1;
+    min-width: 0;
+    width: 0;
+    padding: 6px 8px;
     border: none;
     border-radius: 8px;
     background: #262626;
     color: #fff;
-    font-size: 18px;
+    font-size: 15px;
+  }
+  .reaction-picker button:disabled,
+  #chat-panel .reaction-picker button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .reaction-picker .emoji-type button,
+  #chat-panel .reaction-picker .emoji-type button {
+    font-size: 14px;
   }
   .chat-sr {
     position: absolute;
@@ -354,6 +423,7 @@
 </section>
 
 {% if load_socket %}<script src="{% static 'js/socket-client.js' %}"></script>{% endif %}
+<script src="{% static 'js/emoji-picker.js' %}"></script>
 <script src="{% static 'js/chat-client.js' %}"></script>
 <script>
   (function () {
@@ -406,6 +476,28 @@
       } else {
         fab.focus();
       }
+      liftAboveKeyboard();
+    }
+
+    // On phones the keyboard covers the bottom of the screen without
+    // resizing the page (iOS Safari), which would hide the message box. Keep
+    // the sheet's bottom on top of the keyboard, and its height within the
+    // space left above it.
+    const phone = window.matchMedia("(max-width: 600px)");
+    function liftAboveKeyboard() {
+      const view = window.visualViewport;
+      if (!view || !open || !phone.matches) {
+        panel.style.bottom = panel.style.maxHeight = "";
+        return;
+      }
+      const keyboard = Math.max(0, window.innerHeight - view.height - view.offsetTop);
+      panel.style.bottom = keyboard ? `${keyboard}px` : "";
+      panel.style.maxHeight = keyboard ? `${view.height - 8}px` : "";
+      if (keyboard && document.activeElement === input) list.scrollTop = list.scrollHeight;
+    }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", liftAboveKeyboard);
+      window.visualViewport.addEventListener("scroll", liftAboveKeyboard);
     }
 
     fab.addEventListener("click", () => setOpen(!open));
@@ -468,11 +560,14 @@
     }
     setInterval(render, 30000); // Keep "Last seen ... ago" current.
 
-    // The quick reactions (chat.reaction_emoji.QUICK_REACTIONS); "+" takes any
-    // one emoji from the keyboard, and the server checks it.
+    // The quick reactions (chat.reaction_emoji.QUICK_REACTIONS); "+" opens a
+    // grid of emoji to tap (static/js/emoji-picker.js), with a box for any
+    // other one emoji from the keyboard. The server checks it.
     const QUICK_REACTIONS = ["❤️", "😂", "😮", "😢", "🙏", "👍", "🔥"];
+    const EMOJI = window.meYouEmoji;
 
-    // `draft` belongs to the caller and outlives redraws: { open, value, focused }.
+    // `draft` belongs to the caller and outlives redraws:
+    // { open, group, value, focused }.
     function reactionPicker(current, onPick, draft = {}) {
       const row = document.createElement("span");
       row.className = "reaction-picker";
@@ -485,40 +580,75 @@
         b.addEventListener("click", onClick);
         return b;
       };
-      for (const emoji of QUICK_REACTIONS) {
-        // Picking your current reaction again takes it back.
-        row.append(button(emoji, emoji === current, () => onPick(emoji === current ? null : emoji)));
-      }
+      // Picking your current reaction again takes it back.
+      const pick = (emoji) => {
+        Object.assign(draft, { open: false, value: "", focused: false });
+        onPick(emoji === current ? null : emoji);
+      };
       const customBox = () => {
+        const box = document.createElement("span");
+        box.className = "emoji-type";
         const input = document.createElement("input");
         input.maxLength = 32;
         input.setAttribute("maxlength", "32");
-        input.setAttribute("aria-label", "Any emoji");
-        input.placeholder = "🙂";
+        input.setAttribute("aria-label", "Type any emoji");
+        input.placeholder = "Or type any emoji";
         input.value = draft.value || "";
-        input.addEventListener("input", () => { draft.value = input.value; });
+        const ok = button("Add", null, () => {
+          const value = input.value.trim();
+          if (value) pick(value);
+        }, "Use this emoji");
+        // Nothing to add until something is typed (the box starts empty).
+        ok.disabled = !input.value.trim();
+        input.addEventListener("input", () => {
+          draft.value = input.value;
+          ok.disabled = !input.value.trim();
+        });
         input.addEventListener("focus", () => { draft.focused = true; });
         input.addEventListener("blur", () => { draft.focused = false; });
-        const ok = button("OK", null, () => {
-          const value = input.value.trim();
-          if (!value) return;
-          Object.assign(draft, { open: false, value: "", focused: false });
-          onPick(value);
-        }, "Use this emoji");
         input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ok.click(); } });
         if (draft.focused) setTimeout(() => input.isConnected && input.focus());
-        return [input, ok];
+        box.append(input, ok);
+        return box;
+      };
+      const grid = () => {
+        row.classList.add("is-open");
+        const groups = EMOJI ? EMOJI.EMOJI_GROUPS : [];
+        const active = groups.find((g) => g.name === draft.group) || groups[0];
+        const tabs = document.createElement("span");
+        tabs.className = "emoji-tabs";
+        tabs.setAttribute("role", "tablist");
+        const cells = document.createElement("span");
+        cells.className = "emoji-grid";
+        const fill = (group) => {
+          cells.replaceChildren(...EMOJI.emojiIn(group).map((emoji) => button(emoji, emoji === current, () => pick(emoji))));
+          cells.setAttribute("aria-label", group.name);
+        };
+        for (const group of groups) {
+          const tab = button(group.icon, null, () => {
+            draft.group = group.name;
+            for (const t of tabs.children) t.setAttribute("aria-selected", String(t === tab));
+            fill(group);
+          }, group.name);
+          tab.setAttribute("role", "tab");
+          tab.setAttribute("aria-selected", String(group === active));
+          tabs.append(tab);
+        }
+        if (active) fill(active);
+        row.append(tabs, cells, customBox());
       };
       if (draft.open) {
-        row.append(...customBox());
+        grid();
       } else {
+        for (const emoji of QUICK_REACTIONS) {
+          row.append(button(emoji, emoji === current, () => pick(emoji)));
+        }
         const custom = !QUICK_REACTIONS.includes(current) && current;
         const plus = button(custom || "+", Boolean(custom), () => {
-          Object.assign(draft, { open: true, focused: true });
-          const [input, ok] = customBox();
-          plus.replaceWith(input, ok);
-          input.focus();
-        }, "Pick any emoji");
+          draft.open = true;
+          row.replaceChildren();
+          grid();
+        }, "More emoji");
         row.append(plus);
       }
       return row;

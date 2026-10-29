@@ -129,12 +129,23 @@
         background: var(--glass);
         border: 1px solid var(--accent);
         color: white;
+        font-family: inherit;
         cursor: pointer;
         transition: background 0.2s ease;
       }
-      button:hover {
-        background: var(--accent-hover);
-        color: #222;
+      /* Only with a mouse: on touch screens :hover sticks after a tap, so
+         a tapped button would stay pink and look picked. Never the flip
+         card: it keeps its own look. */
+      @media (hover: hover) {
+        button:not(:disabled):not(.flip-container):hover {
+          background: var(--accent-hover);
+          color: #222;
+        }
+      }
+      /* Not your turn (or nothing left): show it, so a tap isn't a mystery. */
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
       }
       dialog {
         background: var(--bg);
@@ -256,6 +267,30 @@
         border: none;
         resize: vertical;
         min-height: 70px;
+      }
+      /* Text boxes look like the rest of the app's fields, never browser white. */
+      #answer-text,
+      #add-modal textarea,
+      #new-category {
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #1e1e1e;
+        color: #fff;
+        font: inherit;
+        font-size: 16px;
+        color-scheme: dark;
+        transition: border-color 0.2s ease;
+      }
+      #answer-text::placeholder,
+      #add-modal textarea::placeholder {
+        color: #888;
+      }
+      #answer-text:focus,
+      #add-modal textarea:focus,
+      #new-category:focus {
+        outline: none;
+        border-color: var(--accent);
       }
       .answer-row {
         display: flex;
@@ -582,14 +617,20 @@
         return document.querySelector('input[name="new-kind"]:checked').value;
       }
 
+      // One add at a time, so a double tap can't add the question twice.
+      let addingQuestion = false;
       async function submitQuestion(e) {
         e.preventDefault();
+        if (addingQuestion) return;
         const text = document.getElementById("new-question").value.trim();
         const promptBody = promptForm.promptPayload({
           pageMode: mode, category: newCategory.value, kind: selectedKind(), text,
         });
         if (!promptBody) return;
 
+        const addButton = e.target.querySelector('button[type="submit"]');
+        addingQuestion = true;
+        addButton.disabled = true;
         try {
           const res = await fetch("/api/space/custom-questions/", {
             method: "POST",
@@ -599,6 +640,7 @@
 
           if (res.ok) {
             // The server adds it to the shared deck for both partners.
+            document.getElementById("new-question").value = "";
             closeModal();
             showFeedback("✅ Question added.");
           } else {
@@ -607,6 +649,10 @@
         } catch (err) {
           console.error("Error adding question:", err);
           showFeedback("❌ Couldn't add your question. Please try again.");
+        } finally {
+          // On failure the text stays in the box, ready to try again.
+          addingQuestion = false;
+          addButton.disabled = false;
         }
       }
 

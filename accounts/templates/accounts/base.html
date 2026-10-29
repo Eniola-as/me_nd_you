@@ -81,7 +81,8 @@
         background: #1e1e1e;
         color: #fff;
         font: inherit;
-        font-size: 15px;
+        /* 16px or more, or iPhones zoom the page in when a field is tapped. */
+        font-size: 16px;
       }
       button,
       .button {
@@ -177,6 +178,15 @@
         background: none;
         color: var(--accent-hover);
       }
+      /* Small-looking controls still get a finger-sized (44px) tap area. */
+      .banner .link-button {
+        min-height: 44px;
+        min-width: 44px;
+      }
+      summary {
+        padding: 12px 0;
+        cursor: pointer;
+      }
       /* Long reading pages (privacy policy, terms). */
       .card.wide {
         max-width: 760px;
@@ -237,36 +247,47 @@
         border-radius: 10px;
         user-select: all;
       }
-      .install-guide {
-        margin: 20px 0;
-        padding: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.04);
+      /* A password field with its Show / Hide button (js/password-toggle.js). */
+      .password-field {
+        position: relative;
+        margin-top: 6px;
       }
-      .install-guide h2 {
-        margin: 0 0 6px;
-        color: #fff;
-        font-size: 17px;
-      }
-      .install-guide p {
-        margin: 0 0 10px;
-        color: #bbb;
-        font-size: 13px;
-      }
-      .install-guide ol {
+      .password-field input {
         margin: 0;
-        padding-left: 22px;
+        padding-right: 52px;
       }
-      .install-guide li {
-        margin-top: 8px;
-        color: #ddd;
-        font-size: 13px;
-        line-height: 1.5;
-        overflow-wrap: anywhere;
+      .password-field .password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        margin: 0;
+        padding: 0;
+        transform: translateY(-50%);
+        border: none;
+        border-radius: 10px;
+        background: none;
+        color: #aaa;
       }
-      .install-guide strong {
+      .password-field .password-toggle:hover {
+        background: rgba(255, 255, 255, 0.06);
         color: #fff;
+      }
+      .password-field .password-toggle:focus-visible {
+        outline: 2px solid var(--accent);
+      }
+      .password-field .password-toggle svg {
+        width: 22px;
+        height: 22px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.9;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
       @media (max-width: 480px) {
         body {
@@ -302,6 +323,7 @@
     {% include "accounts/_footer.html" %}
     {# Outside the card: its backdrop-filter would pin "fixed" elements to it. #}
     {% block after_card %}{% endblock %}
+    <script src="{% static 'js/password-toggle.js' %}" defer></script>
     {% include "accounts/_pwa.html" %}
   </body>
 </html>
