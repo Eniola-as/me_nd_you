@@ -24,11 +24,19 @@
     {% include "accounts/_font.html" %}
 
     <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
       body {
         background: #0d0d0d;
         color: white;
         font-family: "Outfit", sans-serif;
         margin: 0;
+        width: 100%;
+        min-width: 0;
         padding: 40px 20px;
         display: flex;
         flex-direction: column;
@@ -43,14 +51,16 @@
 
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
         gap: 20px;
         width: 100%;
         max-width: 600px;
+        min-width: 0;
       }
 
       .mode-card {
         width: 100%;
+        min-width: 0;
         color: white;
         font: inherit;
         background: rgba(255, 255, 255, 0.04);
@@ -88,6 +98,22 @@
         font-size: 13px;
         font-weight: 400;
         color: #aaa;
+      }
+
+      @media (max-width: 480px) {
+        body {
+          padding: 28px 16px;
+        }
+        h2 {
+          margin-bottom: 24px;
+          text-align: center;
+        }
+        .grid {
+          gap: 12px;
+        }
+        .mode-card {
+          padding: 16px 12px;
+        }
       }
     </style>
   </head>

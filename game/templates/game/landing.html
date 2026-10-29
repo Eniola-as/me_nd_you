@@ -33,17 +33,26 @@
         --accent: #ff4c61;
       }
 
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
+      }
+
+      html {
+        min-height: 100%;
       }
 
       body {
         min-height: 100vh;
-        min-width: 100vw;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        width: 100%;
+        min-width: 0;
         font-family: "Outfit", sans-serif;
         background: #0d0d0d;
         color: #fff;
@@ -192,21 +201,18 @@
         html,
         body {
           min-width: 0;
-          width: 100vw;
-          overflow-x: hidden;
+          width: 100%;
         }
 
         .main-content,
         .login-container,
         .pwa-actions {
-          max-width: 100vw;
-          width: 100vw;
-          padding-left: 0;
-          padding-right: 0;
+          max-width: 100%;
+          width: 100%;
         }
 
         .login-container {
-          padding: 28px 4vw;
+          padding: 28px 20px;
         }
 
         h1 {

@@ -22,8 +22,14 @@
       * {
         box-sizing: border-box;
       }
+      html {
+        width: 100%;
+        overflow-x: clip;
+      }
       body {
         margin: 0;
+        width: 100%;
+        min-width: 0;
         min-height: 100vh;
         padding: 24px 12px;
         font-family: "Outfit", sans-serif;
@@ -35,6 +41,7 @@
         justify-content: center;
       }
       .card {
+        min-width: 0;
         background: rgba(255, 255, 255, 0.04);
         border: 1px solid rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(20px);
@@ -187,6 +194,7 @@
         margin-bottom: 6px;
       }
       .wide .table-scroll {
+        max-width: 100%;
         overflow-x: auto;
       }
       .wide table {
@@ -228,6 +236,24 @@
         padding: 12px;
         border-radius: 10px;
         user-select: all;
+      }
+      @media (max-width: 480px) {
+        body {
+          justify-content: flex-start;
+          padding: 20px 12px;
+        }
+        .card {
+          padding: 28px 20px;
+        }
+        .card.wide {
+          padding: 24px 16px;
+        }
+        .wide {
+          overflow-wrap: anywhere;
+        }
+        .wide table {
+          min-width: 100%;
+        }
       }
     </style>
   </head>

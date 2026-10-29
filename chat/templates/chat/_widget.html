@@ -230,6 +230,7 @@
   }
   #chat-input {
     flex: 1;
+    min-width: 0;
     min-height: 40px;
     max-height: 120px;
     padding: 9px 12px;
@@ -296,28 +297,25 @@
     white-space: nowrap;
   }
   @media (max-width: 600px) {
-    /* The page scrolls inside the area above a strip kept for the chat
-       icon, so the icon never sits over a button at any scroll position. */
-    html {
-      height: 100%;
-      overflow: hidden;
-    }
+    /* Keep normal document scrolling on phones; the fixed chat button stays
+       clear of the last content through the body's bottom padding. */
     body {
       box-sizing: border-box;
-      height: calc(100% - 88px - env(safe-area-inset-bottom, 0px));
-      min-height: 0;
-      padding-bottom: 16px;
-      overflow-y: auto;
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      height: auto;
+      padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
       justify-content: flex-start;
-      justify-content: safe center;
     }
     /* A full-width sheet; it covers the icon until it's closed. */
     #chat-panel {
-      left: 0;
-      right: 0;
+      left: env(safe-area-inset-left, 0px);
+      right: env(safe-area-inset-right, 0px);
       bottom: 0;
       width: auto;
       height: 80vh;
+      height: min(80dvh, 640px);
       border-radius: 16px 16px 0 0;
       border-bottom: none;
     }

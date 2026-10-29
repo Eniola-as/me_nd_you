@@ -35,6 +35,8 @@
       }
       body {
         margin: 0;
+        width: 100%;
+        min-width: 0;
         padding: 20px;
         font-family: "Outfit", sans-serif;
         background: var(--bg);
@@ -303,12 +305,14 @@
       }
       .pick-options {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
       }
       .pick-options button {
         flex: none;
+        min-width: 0;
         min-height: 64px;
+        overflow-wrap: anywhere;
       }
       .pick-options button[aria-pressed="true"] {
         background: var(--accent);
@@ -330,6 +334,53 @@
         overflow: hidden;
         clip-path: inset(50%);
         white-space: nowrap;
+      }
+      @media (max-width: 480px) {
+        body {
+          padding: 16px 12px;
+        }
+        h2 {
+          font-size: clamp(22px, 7vw, 28px);
+          text-align: center;
+        }
+        #mode-title,
+        #turn-banner,
+        #feedback,
+        #remaining-counter {
+          max-width: 100%;
+          overflow-wrap: anywhere;
+          text-align: center;
+        }
+        .flip-container,
+        #answer-panel,
+        #pick-panel {
+          width: 100%;
+        }
+        .flip-container {
+          height: clamp(200px, 62vw, 250px);
+        }
+        .side {
+          padding: 16px;
+          font-size: 18px;
+          overflow-wrap: anywhere;
+        }
+        .answer-row {
+          flex-wrap: wrap;
+        }
+        .answer-row button {
+          flex: 1 1 100%;
+        }
+        .buttons {
+          gap: 8px;
+        }
+        .buttons button {
+          flex-basis: 130px;
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+        .pick-options {
+          gap: 8px;
+        }
       }
     </style>
   </head>
